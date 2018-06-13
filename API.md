@@ -32,6 +32,21 @@ General optional parameters:
 
 ## API methods
 
+### add_newsletter_config
+Add a new notification agent.
+
+```
+Required parameters:
+    agent_id (int):           The newsletter type to add
+
+Optional parameters:
+    None
+
+Returns:
+    None
+```
+
+
 ### add_notifier_config
 Add a new notification agent.
 
@@ -93,25 +108,28 @@ Returns:
 Delete and recreate the cache directory.
 
 
-### delete_image_cache
-Delete and recreate the image cache directory.
-
-
-### delete_imgur_poster
-Delete the Imgur poster.
+### delete_hosted_images
+Delete the images uploaded to image hosting services.
 
 ```
 Required parameters:
+    None
+
+Optional parameters:
     rating_key (int):       1234
                             (Note: Must be the movie, show, season, artist, or album rating key)
-Optional parameters:
-    None
+    service (str):          'imgur' or 'cloudinary'
+    delete_all (bool):      'true' to delete all images form the service
 
 Returns:
     json:
         {"result": "success",
-         "message": "Deleted Imgur poster."}
+         "message": "Deleted hosted images from Imgur."}
 ```
+
+
+### delete_image_cache
+Delete and recreate the image cache directory.
 
 
 ### delete_library
@@ -182,6 +200,36 @@ Remove a mobile device from the database.
 ```
 Required parameters:
     mobile_device_id (int):        The device id to delete
+
+Optional parameters:
+    None
+
+Returns:
+    None
+```
+
+
+### delete_newsletter
+Remove a newsletter from the database.
+
+```
+Required parameters:
+    newsletter_id (int):        The newsletter to delete
+
+Optional parameters:
+    None
+
+Returns:
+    None
+```
+
+
+### delete_newsletter_log
+Delete the Tautulli newsletter logs.
+
+```
+Required paramters:
+    None
 
 Optional parameters:
     None
@@ -386,6 +434,7 @@ Returns:
                  "optimized_version_profile": "",
                  "optimized_version_title": "",
                  "originally_available_at": "2016-04-24",
+                 "original_title": "",
                  "parent_media_index": "6",
                  "parent_rating_key": "153036",
                  "parent_thumb": "/library/metadata/153036/thumb/1503889210",
@@ -630,6 +679,7 @@ Returns:
               "full_title": "Game of Thrones - The Red Woman",
               "grandparent_rating_key": 351,
               "grandparent_title": "Game of Thrones",
+              "original_title": "",
               "group_count": 1,
               "group_ids": "1124",
               "id": 1124,
@@ -916,9 +966,9 @@ Optional parameters:
 
 Returns:
     json:
-        [{"section_id": 1, "section_name": "Movies"},
-         {"section_id": 7, "section_name": "Music"},
-         {"section_id": 2, "section_name": "TV Shows"},
+        [{"section_id": 1, "section_name": "Movies", "section_type": "movie"},
+         {"section_id": 7, "section_name": "Music", "section_type": "artist"},
+         {"section_id": 2, "section_name": "TV Shows", "section_type": "show"},
          {...}
          ]
 ```
@@ -1124,6 +1174,7 @@ Returns:
              }
          ],
          "media_type": "episode",
+         "original_title": "",
          "originally_available_at": "2016-04-24",
          "parent_media_index": "6",
          "parent_rating_key": "153036",
@@ -1166,6 +1217,109 @@ Returns:
 ```
 
 
+### get_newsletter_config
+Get the configuration for an existing notification agent.
+
+```
+Required parameters:
+    newsletter_id (int):        The newsletter config to retrieve
+
+Optional parameters:
+    None
+
+Returns:
+    json:
+        {"id": 1,
+         "agent_id": 0,
+         "agent_name": "recently_added",
+         "agent_label": "Recently Added",
+         "friendly_name": "",
+         "id_name": "",
+         "cron": "0 0 * * 1",
+         "active": 1,
+         "subject": "Recently Added to {server_name}! ({end_date})",
+         "body": "View the newsletter here: {newsletter_url}",
+         "message": "",
+         "config": {"custom_cron": 0,
+                    "filename": "newsletter_{newsletter_uuid}.html",
+                    "formatted": 1,
+                    "incl_libraries": ["1", "2"],
+                    "notifier_id": 1,
+                    "save_only": 0,
+                    "time_frame": 7,
+                    "time_frame_units": "days"
+                    },
+         "email_config": {...},
+         "config_options": [{...}, ...],
+         "email_config_options": [{...}, ...]
+         }
+```
+
+
+### get_newsletter_log
+Get the data on the Tautulli newsletter logs table.
+
+```
+Required parameters:
+    None
+
+Optional parameters:
+    order_column (str):             "timestamp", "newsletter_id", "agent_name", "notify_action",
+                                    "subject_text", "start_date", "end_date", "uuid"
+    order_dir (str):                "desc" or "asc"
+    start (int):                    Row to start from, 0
+    length (int):                   Number of items to return, 25
+    search (str):                   A string to search for, "Telegram"
+
+Returns:
+    json:
+        {"draw": 1,
+         "recordsTotal": 1039,
+         "recordsFiltered": 163,
+         "data":
+            [{"agent_id": 0,
+              "agent_name": "recently_added",
+              "end_date": "2018-03-18",
+              "id": 7,
+              "newsletter_id": 1,
+              "notify_action": "on_cron",
+              "start_date": "2018-03-05",
+              "subject_text": "Recently Added to Plex (Winterfell-Server)! (2018-03-18)",
+              "success": 1,
+              "timestamp": 1462253821,
+              "uuid": "7fe4g65i"
+              },
+             {...},
+             {...}
+             ]
+         }
+```
+
+
+### get_newsletters
+Get a list of configured newsletters.
+
+```
+Required parameters:
+    None
+
+Optional parameters:
+    None
+
+Returns:
+    json:
+        [{"id": 1,
+          "agent_id": 0,
+          "agent_name": "recently_added",
+          "agent_label": "Recently Added",
+          "friendly_name": "",
+          "cron": "0 0 * * 1",
+          "active": 1
+          }
+         ]
+```
+
+
 ### get_notification_log
 Get the data on the Tautulli notification logs table.
 
@@ -1174,8 +1328,8 @@ Required parameters:
     None
 
 Optional parameters:
-    order_column (str):             "timestamp", "agent_name", "notify_action",
-                                    "subject_text", "body_text", "script_args"
+    order_column (str):             "timestamp", "notifier_id", "agent_name", "notify_action",
+                                    "subject_text", "body_text",
     order_dir (str):                "desc" or "asc"
     start (int):                    Row to start from, 0
     length (int):                   Number of items to return, 25
@@ -1188,15 +1342,14 @@ Returns:
          "recordsFiltered": 163,
          "data":
             [{"agent_id": 13,
-              "agent_name": "Telegram",
-              "body_text": "Game of Thrones - S06E01 - The Red Woman [Transcode].",
+              "agent_name": "telegram",
+              "body_text": "DanyKhaleesi69 started playing The Red Woman.",
               "id": 1000,
-              "notify_action": "play",
-              "poster_url": "http://i.imgur.com/ZSqS8Ri.jpg",
+              "notify_action": "on_play",
               "rating_key": 153037,
-              "script_args": "[]",
               "session_key": 147,
               "subject_text": "Tautulli (Winterfell-Server)",
+              "success": 1,
               "timestamp": 1462253821,
               "user": "DanyKhaleesi69",
               "user_id": 8008135
@@ -1629,6 +1782,7 @@ Returns:
               "library_name": "",
               "media_index": "1",
               "media_type": "episode",
+              "original_title": "",
               "parent_media_index": "6",
               "parent_rating_key": "153036",
               "parent_thumb": "/library/metadata/153036/thumb/1462175062",
@@ -1773,6 +1927,69 @@ Returns:
         {"General": {"api_enabled": true, ...}
          "Advanced": {"cache_sizemb": "32", ...},
          ...
+         }
+```
+
+
+### get_stream_data
+Get the stream details from history or current stream.
+
+```
+Required parameters:
+    row_id (int):       The row ID number for the history item, OR
+    session_key (int):  The session key of the current stream
+
+Optional parameters:
+    None
+
+Returns:
+    json:
+        {"aspect_ratio": "2.35",
+         "audio_bitrate": 231,
+         "audio_channels": 6,
+         "audio_codec": "aac",
+         "audio_decision": "transcode",
+         "bitrate": 2731,
+         "container": "mp4",
+         "current_session": "",
+         "grandparent_title": "",
+         "media_type": "movie",
+         "optimized_version": "",
+         "optimized_version_profile": "",
+         "optimized_version_title": "",
+         "original_title": "",
+         "pre_tautulli": "",
+         "quality_profile": "1.5 Mbps 480p",
+         "stream_audio_bitrate": 203,
+         "stream_audio_channels": 2,
+         "stream_audio_codec": "aac",
+         "stream_audio_decision": "transcode",
+         "stream_bitrate": 730,
+         "stream_container": "mkv",
+         "stream_container_decision": "transcode",
+         "stream_subtitle_codec": "",
+         "stream_subtitle_decision": "",
+         "stream_video_bitrate": 527,
+         "stream_video_codec": "h264",
+         "stream_video_decision": "transcode",
+         "stream_video_framerate": "24p",
+         "stream_video_height": 306,
+         "stream_video_resolution": "SD",
+         "stream_video_width": 720,
+         "subtitle_codec": "",
+         "subtitles": "",
+         "synced_version": "",
+         "synced_version_profile": "",
+         "title": "Frozen",
+         "transcode_hw_decoding": "",
+         "transcode_hw_encoding": "",
+         "video_bitrate": 2500,
+         "video_codec": "h264",
+         "video_decision": "transcode",
+         "video_framerate": "24p",
+         "video_height": 816,
+         "video_resolution": "1080",
+         "video_width": 1920
          }
 ```
 
@@ -2215,6 +2432,23 @@ Returns:
 ```
 
 
+### notify_newsletter
+Send a newsletter using Tautulli.
+
+```
+Required parameters:
+    newsletter_id (int):    The ID number of the newsletter agent
+
+Optional parameters:
+    subject (str):          The subject of the newsletter
+    body (str):             The body of the newsletter
+    message (str):          The message of the newsletter
+
+Returns:
+    None
+```
+
+
 ### notify_recently_added
 Send a recently added notification using Tautulli.
 
@@ -2244,8 +2478,12 @@ Required parameters:
     rating_key (str):       54321
 
 Optional parameters:
-    width (str):            150
-    height (str):           255
+    width (str):            300
+    height (str):           450
+    opacity (str):          25
+    background (str):       282828
+    blur (str):             3
+    img_format (str):       png
     fallback (str):         "poster", "cover", "art"
     refresh (bool):         True or False whether to refresh the image cache
 
@@ -2312,7 +2550,7 @@ Returns:
 
 
 ### set_mobile_device_config
-Configure an exisitng notificaiton agent.
+Configure an existing notification agent.
 
 ```
 Required parameters:
@@ -2326,8 +2564,24 @@ Returns:
 ```
 
 
+### set_newsletter_config
+Configure an existing newsletter agent.
+
+```
+Required parameters:
+    newsletter_id (int):    The newsletter config to update
+    agent_id (int):         The newsletter type of the newsletter
+
+Optional parameters:
+    Pass all the config options for the agent with the 'newsletter_config_' and 'newsletter_email_' prefix.
+
+Returns:
+    None
+```
+
+
 ### set_notifier_config
-Configure an exisitng notificaiton agent.
+Configure an existing notification agent.
 
 ```
 Required parameters:
@@ -2370,15 +2624,15 @@ Returns:
 
 
 ### terminate_session
-Add a new notification agent.
+Stop a streaming session.
 
 ```
 Required parameters:
-    session_id (str):           The id of the session to terminate
-    message (str):              A custom message to send to the client
+    session_key (int):          The session key of the session to terminate, OR
+    session_id (str):           The session id of the session to terminate
 
 Optional parameters:
-    None
+    message (str):              A custom message to send to the client
 
 Returns:
     None

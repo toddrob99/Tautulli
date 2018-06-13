@@ -86,7 +86,9 @@ def notify(newsletter_id=None, notify_action=None, **kwargs):
         body = newsletter_config['body']
         message = newsletter_config['message']
 
-    newsletter_agent = newsletters.get_agent_class(agent_id=newsletter_config['agent_id'],
+    newsletter_agent = newsletters.get_agent_class(newsletter_id=newsletter_id,
+                                                   newsletter_id_name=newsletter_config['id_name'],
+                                                   agent_id=newsletter_config['agent_id'],
                                                    config=newsletter_config['config'],
                                                    email_config=newsletter_config['email_config'],
                                                    subject=subject,
@@ -100,6 +102,7 @@ def notify(newsletter_id=None, notify_action=None, **kwargs):
                                          subject=newsletter_agent.subject_formatted,
                                          body=newsletter_agent.body_formatted,
                                          message=newsletter_agent.message_formatted,
+                                         filename=newsletter_agent.filename_formatted,
                                          start_date=newsletter_agent.start_date.format('YYYY-MM-DD'),
                                          end_date=newsletter_agent.end_date.format('YYYY-MM-DD'),
                                          start_time=newsletter_agent.start_time,
@@ -114,7 +117,7 @@ def notify(newsletter_id=None, notify_action=None, **kwargs):
         return True
 
 
-def set_notify_state(newsletter, notify_action, subject, body, message,
+def set_notify_state(newsletter, notify_action, subject, body, message, filename,
                      start_date, end_date, start_time, end_time, newsletter_uuid):
 
     if newsletter and notify_action:
@@ -133,7 +136,8 @@ def set_notify_state(newsletter, notify_action, subject, body, message,
                   'start_date': start_date,
                   'end_date': end_date,
                   'start_time': start_time,
-                  'end_time': end_time}
+                  'end_time': end_time,
+                  'filename': filename}
 
         db.upsert(table_name='newsletter_log', key_dict=keys, value_dict=values)
         return db.last_insert_id()
@@ -149,20 +153,29 @@ def set_notify_success(newsletter_log_id):
     db.upsert(table_name='newsletter_log', key_dict=keys, value_dict=values)
 
 
-def get_newsletter(newsletter_uuid):
+def get_newsletter(newsletter_uuid=None, newsletter_id_name=None):
     db = database.MonitorDatabase()
-    result = db.select_single('SELECT newsletter_id, start_date, end_date FROM newsletter_log '
-                              'WHERE uuid = ?', [newsletter_uuid])
+
+    if newsletter_uuid:
+        result = db.select_single('SELECT start_date, end_date, uuid, filename FROM newsletter_log '
+                                  'WHERE uuid = ?', [newsletter_uuid])
+    elif newsletter_id_name:
+        result = db.select_single('SELECT start_date, end_date, uuid, filename FROM newsletter_log '
+                                  'JOIN newsletters ON newsletters.id = newsletter_log.newsletter_id '
+                                  'WHERE id_name = ? AND notify_action != "test" '
+                                  'ORDER BY timestamp DESC LIMIT 1', [newsletter_id_name])
+    else:
+        result = None
 
     if result:
-        newsletter_id = result['newsletter_id']
+        newsletter_uuid = result['uuid']
         start_date = result['start_date']
         end_date = result['end_date']
+        newsletter_file = result['filename'] or 'newsletter_%s-%s_%s.html' % (start_date.replace('-', ''),
+                                                                              end_date.replace('-', ''),
+                                                                              newsletter_uuid)
 
-        newsletter_file = 'newsletter_%s-%s_%s.html' % (start_date.replace('-', ''),
-                                                        end_date.replace('-', ''),
-                                                        newsletter_uuid)
-        newsletter_folder = plexpy.CONFIG.NEWSLETTER_DIR
+        newsletter_folder = plexpy.CONFIG.NEWSLETTER_DIR or os.path.join(plexpy.DATA_DIR, 'newsletters')
         newsletter_file_fp = os.path.join(newsletter_folder, newsletter_file)
 
         if newsletter_file in os.listdir(newsletter_folder):
@@ -173,4 +186,4 @@ def get_newsletter(newsletter_uuid):
             except OSError as e:
                 logger.error(u"Tautulli NewsletterHandler :: Failed to retrieve newsletter '%s': %s" % (newsletter_uuid, e))
         else:
-            logger.warn(u"Tautulli NewsletterHandler :: Newsletter '%s' file is missing." % newsletter_uuid)
+            logger.warn(u"Tautulli NewsletterHandler :: Newsletter file '%s' is missing." % newsletter_file)

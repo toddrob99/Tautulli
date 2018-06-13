@@ -42,6 +42,7 @@ import datafactory
 import libraries
 import logger
 import mobile_app
+import newsletters
 import newsletter_handler
 import notification_handler
 import notifiers
@@ -152,6 +153,17 @@ def initialize(config_file):
         logger.initLogger(console=not QUIET, log_dir=CONFIG.LOG_DIR,
                           verbose=VERBOSE)
 
+        logger.info(u"Starting Tautulli {}".format(
+            common.RELEASE
+        ))
+        logger.info(u"{} {} ({}{})".format(
+            common.PLATFORM, common.PLATFORM_RELEASE, common.PLATFORM_VERSION,
+            ' - {}'.format(common.PLATFORM_LINUX_DISTRO) if common.PLATFORM_LINUX_DISTRO else ''
+        ))
+        logger.info(u"Python {}".format(
+            sys.version
+        ))
+
         if not CONFIG.BACKUP_DIR:
             CONFIG.BACKUP_DIR = os.path.join(DATA_DIR, 'backups')
         if not os.path.exists(CONFIG.BACKUP_DIR):
@@ -191,6 +203,7 @@ def initialize(config_file):
             logger.error(u"Could not perform upgrades: %s" % e)
 
         # Add notifier configs to logger blacklist
+        newsletters.blacklist_logger()
         notifiers.blacklist_logger()
         mobile_app.blacklist_logger()
 
@@ -505,11 +518,12 @@ def dbcheck():
 
     # sessions table :: This is a temp table that logs currently active sessions
     c_db.execute(
-        'CREATE TABLE IF NOT EXISTS sessions (id INTEGER PRIMARY KEY AUTOINCREMENT, session_key INTEGER, '
+        'CREATE TABLE IF NOT EXISTS sessions (id INTEGER PRIMARY KEY AUTOINCREMENT, session_key INTEGER, session_id TEXT, '
         'transcode_key TEXT, rating_key INTEGER, section_id INTEGER, media_type TEXT, started INTEGER, stopped INTEGER, '
         'paused_counter INTEGER DEFAULT 0, state TEXT, user_id INTEGER, user TEXT, friendly_name TEXT, '
         'ip_address TEXT, machine_id TEXT, player TEXT, product TEXT, platform TEXT, title TEXT, parent_title TEXT, '
-        'grandparent_title TEXT, full_title TEXT, media_index INTEGER, parent_media_index INTEGER, '
+        'grandparent_title TEXT, original_title TEXT, full_title TEXT, '
+        'media_index INTEGER, parent_media_index INTEGER, '
         'thumb TEXT, parent_thumb TEXT, grandparent_thumb TEXT, year INTEGER, '
         'parent_rating_key INTEGER, grandparent_rating_key INTEGER, '
         'view_offset INTEGER DEFAULT 0, duration INTEGER, video_decision TEXT, audio_decision TEXT, '
@@ -529,6 +543,7 @@ def dbcheck():
         'transcode_hw_decoding INTEGER, transcode_hw_encoding INTEGER, '
         'optimized_version INTEGER, optimized_version_profile TEXT, optimized_version_title TEXT, '
         'synced_version INTEGER, synced_version_profile TEXT, '
+        'live INTEGER, live_uuid TEXT, '
         'buffer_count INTEGER DEFAULT 0, buffer_last_triggered INTEGER, last_paused INTEGER, watched INTEGER DEFAULT 0, '
         'write_attempts INTEGER DEFAULT 0, raw_stream_info TEXT)'
     )
@@ -569,8 +584,9 @@ def dbcheck():
     c_db.execute(
         'CREATE TABLE IF NOT EXISTS session_history_metadata (id INTEGER PRIMARY KEY, '
         'rating_key INTEGER, parent_rating_key INTEGER, grandparent_rating_key INTEGER, '
-        'title TEXT, parent_title TEXT, grandparent_title TEXT, full_title TEXT, media_index INTEGER, '
-        'parent_media_index INTEGER, section_id INTEGER, thumb TEXT, parent_thumb TEXT, grandparent_thumb TEXT, '
+        'title TEXT, parent_title TEXT, grandparent_title TEXT, original_title TEXT, full_title TEXT, '
+        'media_index INTEGER, parent_media_index INTEGER, section_id INTEGER, '
+        'thumb TEXT, parent_thumb TEXT, grandparent_thumb TEXT, '
         'art TEXT, media_type TEXT, year INTEGER, originally_available_at TEXT, added_at INTEGER, updated_at INTEGER, '
         'last_viewed_at INTEGER, content_rating TEXT, summary TEXT, tagline TEXT, rating TEXT, '
         'duration INTEGER DEFAULT 0, guid TEXT, directors TEXT, writers TEXT, actors TEXT, genres TEXT, studio TEXT, '
@@ -637,7 +653,7 @@ def dbcheck():
     # newsletters table :: This table keeps record of the newsletter settings
     c_db.execute(
         'CREATE TABLE IF NOT EXISTS newsletters (id INTEGER PRIMARY KEY AUTOINCREMENT, '
-        'agent_id INTEGER, agent_name TEXT, agent_label TEXT, '
+        'agent_id INTEGER, agent_name TEXT, agent_label TEXT, id_name TEXT NOT NULL DEFAULT "", '
         'friendly_name TEXT, newsletter_config TEXT, email_config TEXT, '
         'subject TEXT, body TEXT, message TEXT, '
         'cron TEXT NOT NULL DEFAULT "0 0 * * 0", active INTEGER DEFAULT 0)'
@@ -648,7 +664,7 @@ def dbcheck():
         'CREATE TABLE IF NOT EXISTS newsletter_log (id INTEGER PRIMARY KEY AUTOINCREMENT, timestamp INTEGER, '
         'newsletter_id INTEGER, agent_id INTEGER, agent_name TEXT, notify_action TEXT, '
         'subject_text TEXT, body_text TEXT, message_text TEXT, start_date TEXT, end_date TEXT, '
-        'start_time INTEGER, end_time INTEGER, uuid TEXT UNIQUE, success INTEGER DEFAULT 0)'
+        'start_time INTEGER, end_time INTEGER, uuid TEXT UNIQUE, filename TEXT, success INTEGER DEFAULT 0)'
     )
 
     # recently_added table :: This table keeps record of recently added items
@@ -1053,6 +1069,36 @@ def dbcheck():
             'ALTER TABLE sessions ADD COLUMN watched INTEGER DEFAULT 0'
         )
 
+    # Upgrade sessions table from earlier versions
+    try:
+        c_db.execute('SELECT live FROM sessions')
+    except sqlite3.OperationalError:
+        logger.debug(u"Altering database. Updating database table sessions.")
+        c_db.execute(
+            'ALTER TABLE sessions ADD COLUMN live INTEGER'
+        )
+        c_db.execute(
+            'ALTER TABLE sessions ADD COLUMN live_uuid TEXT'
+        )
+
+    # Upgrade sessions table from earlier versions
+    try:
+        c_db.execute('SELECT session_id FROM sessions')
+    except sqlite3.OperationalError:
+        logger.debug(u"Altering database. Updating database table sessions.")
+        c_db.execute(
+            'ALTER TABLE sessions ADD COLUMN session_id TEXT'
+        )
+
+    # Upgrade sessions table from earlier versions
+    try:
+        c_db.execute('SELECT original_title FROM sessions')
+    except sqlite3.OperationalError:
+        logger.debug(u"Altering database. Updating database table sessions.")
+        c_db.execute(
+            'ALTER TABLE sessions ADD COLUMN original_title TEXT'
+        )
+
     # Upgrade session_history table from earlier versions
     try:
         c_db.execute('SELECT reference_id FROM session_history')
@@ -1137,6 +1183,15 @@ def dbcheck():
         logger.debug(u"Altering database. Updating database table session_history_metadata.")
         c_db.execute(
             'ALTER TABLE session_history_metadata ADD COLUMN labels TEXT'
+        )
+
+    # Upgrade session_history_metadata table from earlier versions
+    try:
+        c_db.execute('SELECT original_title FROM session_history_metadata')
+    except sqlite3.OperationalError:
+        logger.debug(u"Altering database. Updating database table session_history_metadata.")
+        c_db.execute(
+            'ALTER TABLE session_history_metadata ADD COLUMN original_title TEXT'
         )
 
     # Upgrade session_history_media_info table from earlier versions
@@ -1495,6 +1550,24 @@ def dbcheck():
             'ALTER TABLE newsletter_log ADD COLUMN end_time INTEGER'
         )
 
+    # Upgrade newsletter_log table from earlier versions
+    try:
+        c_db.execute('SELECT filename FROM newsletter_log')
+    except sqlite3.OperationalError:
+        logger.debug(u"Altering database. Updating database table newsletter_log.")
+        c_db.execute(
+            'ALTER TABLE newsletter_log ADD COLUMN filename TEXT'
+        )
+
+    # Upgrade newsletters table from earlier versions
+    try:
+        c_db.execute('SELECT id_name FROM newsletters')
+    except sqlite3.OperationalError:
+        logger.debug(u"Altering database. Updating database table newsletters.")
+        c_db.execute(
+            'ALTER TABLE newsletters ADD COLUMN id_name TEXT NOT NULL DEFAULT ""'
+        )
+
     # Upgrade library_sections table from earlier versions (remove UNIQUE constraint on section_id)
     try:
         result = c_db.execute('SELECT SQL FROM sqlite_master WHERE type="table" AND name="library_sections"').fetchone()
@@ -1694,9 +1767,9 @@ def dbcheck():
             for row in result:
                 img_hash = notification_handler.set_hash_image_info(
                     rating_key=row['rating_key'], width=1000, height=1500, fallback='poster')
-                data_factory.set_imgur_info(img_hash=img_hash, imgur_title=row['poster_title'],
-                                            imgur_url=row['poster_url'], delete_hash=row['delete_hash'],
-                                            service='imgur')
+                data_factory.set_img_info(img_hash=img_hash, img_title=row['poster_title'],
+                                          img_url=row['poster_url'], delete_hash=row['delete_hash'],
+                                          service='imgur')
 
             db.action('DROP TABLE poster_urls')
     except sqlite3.OperationalError:
@@ -1794,7 +1867,8 @@ def initialize_tracker():
         'appVersion': common.RELEASE,
         'appId': plexpy.INSTALL_TYPE,
         'appInstallerId': plexpy.CONFIG.GIT_BRANCH,
-        'dimension1': '{} {}'.format(common.PLATFORM, common.PLATFORM_VERSION),  # App Platform
+        'dimension1': '{} {}'.format(common.PLATFORM, common.PLATFORM_RELEASE),  # App Platform
+        'dimension2': common.PLATFORM_LINUX_DISTRO,  # Linux Distro
         'userLanguage': plexpy.SYS_LANGUAGE,
         'documentEncoding': plexpy.SYS_ENCODING,
         'noninteractive': True

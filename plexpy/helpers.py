@@ -209,6 +209,9 @@ def now():
     now = datetime.datetime.now()
     return now.strftime("%Y-%m-%d %H:%M:%S")
 
+def utc_now_iso():
+    utcnow = datetime.datetime.utcnow()
+    return utcnow.isoformat()
 
 def human_duration(s, sig='dhms'):
 
@@ -834,7 +837,11 @@ def cloudinary_transform(rating_key=None, width=1000, height=1500, opacity=100, 
         api_secret=plexpy.CONFIG.CLOUDINARY_API_SECRET
     )
 
-    img_options = {}
+    img_options = {'format': img_format,
+                   'fetch_format': 'auto',
+                   'quality': 'auto',
+                   'version': int(time.time()),
+                   'secure': True}
 
     if width != 1000:
         img_options['width'] = str(width)
@@ -849,14 +856,11 @@ def cloudinary_transform(rating_key=None, width=1000, height=1500, opacity=100, 
     if blur != 0:
         img_options['effect'] = 'blur:{}'.format(blur * 100)
 
-    if img_options:
-        img_options['format'] = img_format
-
-        try:
-            url, options = cloudinary_url('{}_{}'.format(fallback, rating_key), **img_options)
-            logger.debug(u"Tautulli Helpers :: Image '{}' ({}) transformed on Cloudinary.".format(img_title, fallback))
-        except Exception as e:
-            logger.error(u"Tautulli Helpers :: Unable to transform image '{}' ({}) on Cloudinary: {}".format(img_title, fallback, e))
+    try:
+        url, options = cloudinary_url('{}_{}'.format(fallback, rating_key), **img_options)
+        logger.debug(u"Tautulli Helpers :: Image '{}' ({}) transformed on Cloudinary.".format(img_title, fallback))
+    except Exception as e:
+        logger.error(u"Tautulli Helpers :: Unable to transform image '{}' ({}) on Cloudinary: {}".format(img_title, fallback, e))
 
     return url
 
@@ -949,7 +953,7 @@ def parse_condition_logic_string(s, num_cond=0):
     """
     valid_tokens = re.compile(r'(\(|\)|and|or)')
     conditions_pattern = re.compile(r'{\d+}')
-    
+
     tokens = [x.strip() for x in re.split(valid_tokens, s.lower()) if x.strip()]
 
     stack = [[]]
@@ -960,7 +964,7 @@ def parse_condition_logic_string(s, num_cond=0):
     close_bracket_next = False
     nest_and = 0
     nest_nest_and = 0
-    
+
     for i, x in enumerate(tokens):
         if open_bracket_next and x == '(':
             stack[-1].append([])
@@ -971,7 +975,7 @@ def parse_condition_logic_string(s, num_cond=0):
             close_bracket_next = False
             if nest_and:
                 nest_nest_and += 1
-            
+
         elif close_bracket_next and x == ')':
             stack.pop()
             if not stack:
@@ -1000,7 +1004,7 @@ def parse_condition_logic_string(s, num_cond=0):
             if nest_and > nest_nest_and:
                 stack.pop()
                 nest_and -= 1
-            
+
         elif bool_next and x == 'and' and i < len(tokens)-1:
             stack[-1].append([])
             stack.append(stack[-1][-1])
@@ -1011,7 +1015,7 @@ def parse_condition_logic_string(s, num_cond=0):
             open_bracket_next = True
             close_bracket_next = False
             nest_and += 1
-            
+
         elif bool_next and x == 'or' and i < len(tokens)-1:
             stack[-1].append(x)
             cond_next = True

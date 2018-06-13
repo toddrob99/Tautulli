@@ -115,9 +115,9 @@
                         </div>
                         <div class="checkbox advanced-setting">
                             <label>
-                                <input type="checkbox" id="group_history_tables" name="group_history_tables" value="1" ${config['group_history_tables']}> Group Successive Play History
+                                <input type="checkbox" id="group_history_tables" name="group_history_tables" value="1" ${config['group_history_tables']}> Group Play History
                             </label>
-                            <p class="help-block">Group successive play history by the same user as a single entry in the watch statistics, tables, and graphs.</p>
+                            <p class="help-block">Group play history for the same item and user as a single entry when progress is less than the watched percent.</p>
                         </div>
                         <div class="checkbox advanced-setting">
                             <label>
@@ -646,11 +646,11 @@
                     <div role="tabpanel" class="tab-pane" id="tabs-plex_media_server">
 
                         <div class="padded-header">
-                            <h3>Plex Media Server <small style="color: #fff;">Version <span id="pms_version">${config['pms_version']}</span></small></h3>
+                            <h3 id="resources-xml">Plex Media Server <small style="color: #fff;">Version <span id="pms_version">${config['pms_version']}</span></small></h3>
                         </div>
 
                         <div class="form-group has-feedback" id="pms_ip_group">
-                            <label for="pms_ip">Plex IP or Hostname</label>
+                            <label for="pms_ip">Plex IP Address or Hostname</label>
                             <div class="row">
                                 <div class="col-md-9" id="selectize-pms-ip-container">
                                     <div class="input-group">
@@ -702,6 +702,17 @@
                                 The server URL that Tautulli will use to connect to your Plex server. Retrieved automatically.
                             </p>
                         </div>
+                        <div class="form-group advanced-setting">
+                            <label for="pms_url">Plex Server Identifier</label>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <input type="text" class="form-control" id="pms_identifier" name="pms_identifier" value="${config['pms_identifier']}" size="30" readonly>
+                                </div>
+                            </div>
+                            <p class="help-block">
+                                The unique identifier for your Plex server. Retrieved automatically.
+                            </p>
+                        </div>
                         <div class="checkbox advanced-setting">
                             <label>
                                 <input type="checkbox" class="pms-settings" id="pms_url_manual" name="pms_url_manual" value="1" ${config['pms_url_manual']}> Manual Connection
@@ -728,7 +739,6 @@
                         </div>
 
                         <input type="hidden" id="pms_is_cloud" name="pms_is_cloud" value="${config['pms_is_cloud']}">
-                        <input type="hidden" id="pms_identifier" name="pms_identifier" value="${config['pms_identifier']}">
                         <input type="checkbox" name="server_changed" id="server_changed" value="1" style="display: none;">
 
                         <div class="form-group advanced-setting">
@@ -955,11 +965,63 @@
                             <p class="help-block">Enable to host newsletters on your own domain. This will generate a link to an HTML page where you can view the newsletter.</p>
                         </div>
                         <div id="self_host_newsletter_options" style="overlfow: hidden; display: ${'block' if config['newsletter_self_hosted'] == 'checked' else 'none'}">
-                            <p class="help-block" id="self_host_newsletter_message">
-                                Note: The <span class="inline-pre">${http_root}newsletter</span> endpoint on your domain must be publicly accessible from the internet.<br>
-                                Note: Newsletter images will be self-hosted regardless of the Image Hosting setting below.<br>
+                            <div class="form-group">
+                                <p class="help-block" id="self_host_newsletter_message">
+                                    Note: The <span class="inline-pre">${http_root}newsletter</span> endpoint on your domain must be publicly accessible from the internet.
+                                </p>
+                                <p class="help-block settings-warning base-url-warning">Warning: Public Tautulli domain not set under <a data-tab-destination="tabs-web_interface" data-target="#http_base_url">Web Interface</a>.</p>
+                            </div>
+                            <div class="form-group">
+                                <label for="newsletter_auth">Newsletter Authentication</label>
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <select class="form-control" id="newsletter_auth" name="newsletter_auth">
+                                            <option value="0" ${'selected' if config['newsletter_auth'] == 0 else ''}>Disabled</option>
+                                            <option value="1" ${'selected' if config['newsletter_auth'] == 1 else ''}>Password</option>
+                                            <option value="2" ${'selected' if config['newsletter_auth'] == 2 else ''}>Tautulli Guest Access</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <p class="help-block">Select the authentication method to use for self-hosted newsletters.</p>
+                                <p class="help-block settings-warning newsletter-guest-access-warning">Warning: Guest Access is not enabled under <a data-tab-destination="tabs-web_interface" data-target="#allow_guest_access">Web Interface</a>.</p>
+                            </div>
+                            <div class="form-group" id="newsletter_password_option">
+                                <label for="newsletter_password">Newsletter Password</label>
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <input type="text" class="form-control" id="newsletter_password" name="newsletter_password" value="${config['newsletter_password']}">
+                                    </div>
+                                </div>
+                                <p class="help-block">Enter the password that will be required to view self-hosted newsletters.</p>
+                            </div>
+                        </div>
+
+                        <div class="checkbox advanced-setting">
+                            <label>
+                                <input type="checkbox" id="newsletter_inline_styles" name="newsletter_inline_styles" value="1" ${config['newsletter_inline_styles']}> Use Inline Styles Template
+                            </label>
+                            <p class="help-block">
+                                Enable to use newsletter templates with inline CSS styles. Inline styles render better in email clients, but are larger in size which may cause long newsletters to be clipped.<br>
+                                Note: This setting does not affect custom templates. CSS styles will depend on your own template.
                             </p>
-                            <p class="help-block settings-warning base-url-warning">Warning: Public Tautulli domain not set under <a data-tab-destination="tabs-web_interface" data-target="#http_base_url">Web Interface</a>.</p>
+                        </div>
+                        <div class="form-group advanced-setting">
+                            <label for="newsletter_dir">Custom Newsletter Templates Folder</label>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <input type="text" class="form-control" id="newsletter_custom_dir" name="newsletter_custom_dir" value="${config['newsletter_custom_dir']}">
+                                </div>
+                            </div>
+                            <p class="help-block">Optional: Enter the full path to your custom newsletter templates folder. Leave blank for default.</p>
+                        </div>
+                        <div class="form-group advanced-setting">
+                            <label for="newsletter_dir">Newsletter Output Directory</label>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <input type="text" class="form-control" id="newsletter_dir" name="newsletter_dir" value="${config['newsletter_dir']}">
+                                </div>
+                            </div>
+                            <p class="help-block">Enter the full path to where newsletter files will be saved.</p>
                         </div>
 
                         <div class="padded-header">
@@ -970,21 +1032,30 @@
                             <label for="notify_upload_posters">Image Hosting</label>
                             <div class="row">
                                 <div class="col-md-6">
-                                    <select class="form-control" id="notify_upload_posters" name="notify_upload_posters">
-                                        <option value="0" ${'selected' if config['notify_upload_posters'] == 0 else ''}>Disabled</option>
-                                        <option value="1" ${'selected' if config['notify_upload_posters'] == 1 else ''}>Imgur</option>
-                                        <option value="3" ${'selected' if config['notify_upload_posters'] == 3 else ''}>Cloudinary</option>
-                                        <option value="2" ${'selected' if config['notify_upload_posters'] == 2 else ''}>Self-hosted on public Tautulli domain</option>
-                                    </select>
+                                    <div class="${'input-group' if config['notify_upload_posters'] in (1, 3) else ''}">
+                                        <select class="form-control" id="notify_upload_posters" name="notify_upload_posters">
+                                            <option value="0" ${'selected' if config['notify_upload_posters'] == 0 else ''}>Disabled</option>
+                                            <option value="1" ${'selected' if config['notify_upload_posters'] == 1 else ''}>Imgur</option>
+                                            <option value="3" ${'selected' if config['notify_upload_posters'] == 3 else ''}>Cloudinary</option>
+                                            <option value="2" ${'selected' if config['notify_upload_posters'] == 2 else ''}>Self-hosted on public domain</option>
+                                        </select>
+                                        % if config['notify_upload_posters'] in (1, 3):
+                                        <span class="input-group-btn" id="delete_all_uploads_container">
+                                            <button class="btn btn-form" type="button" id="delete_all_uploads">Delete All Uploads</button>
+                                        </span>
+                                        % endif
+                                    </div>
                                 </div>
                             </div>
                             <p class="help-block">Select where to host Plex images for notifications and newsletters.</p>
                         </div>
                         <div id="imgur_upload_options" style="overlfow: hidden; display: ${'none' if config['notify_upload_posters'] != 1 else 'block'}">
-                            <p class="help-block" id="imgur_upload_message">
-                                You can register a new Imgur application <a href="${anon_url('https://api.imgur.com/oauth2/addclient')}" target="_blank">here</a>.<br>
-                                Warning: Imgur uploads are rate-limited and newsletters may exceed the limit. Please use Cloudinary for newsletters instead.
-                            </p>
+                            <div class="form-group">
+                                <p class="help-block" id="imgur_upload_message">
+                                    You can register a new Imgur application <a href="${anon_url('https://api.imgur.com/oauth2/addclient')}" target="_blank">here</a>.<br>
+                                    Warning: Imgur uploads are rate-limited and newsletters may exceed the limit. Please use Cloudinary for newsletters instead.
+                                </p>
+                            </div>
                             <div class="form-group">
                                 <label for="imgur_client_id">Imgur Client ID</label>
                                 <div class="row">
@@ -996,13 +1067,17 @@
                             </div>
                         </div>
                         <div id="self_host_image_options" style="overlfow: hidden; display: ${'none' if config['notify_upload_posters'] != 2 else 'block'}">
-                            <p class="help-block" id="self_host_image_message">Note: The <span class="inline-pre">${http_root}image</span> endpoint on your domain must be publicly accessible from the internet.</p>
-                            <p class="help-block settings-warning base-url-warning">Warning: Public Tautulli domain not set under <a data-tab-destination="tabs-web_interface" data-target="#http_base_url">Web Interface</a>.</p>
+                            <div class="form-group">
+                                <p class="help-block" id="self_host_image_message">Note: The <span class="inline-pre">${http_root}image</span> endpoint on your domain must be publicly accessible from the internet.</p>
+                                <p class="help-block settings-warning base-url-warning">Warning: Public Tautulli domain not set under <a data-tab-destination="tabs-web_interface" data-target="#http_base_url">Web Interface</a>.</p>
+                            </div>
                         </div>
                         <div id="cloudinary_upload_options" style="overlfow: hidden; display: ${'none' if config['notify_upload_posters'] != 3 else 'block'}">
-                            <p class="help-block" id="imgur_upload_message">
-                                You can sign up for Cloudinary <a href="${anon_url('https://cloudinary.com')}" target="_blank">here</a>.<br>
-                            </p>
+                            <div class="form-group">
+                                <p class="help-block" id="imgur_upload_message">
+                                    You can sign up for Cloudinary <a href="${anon_url('https://cloudinary.com')}" target="_blank">here</a>.<br>
+                                </p>
+                            </div>
                             <div class="form-group">
                                 <label for="cloudinary_cloud_name">Cloudinary Cloud Name</label>
                                 <div class="row">
@@ -1084,7 +1159,7 @@
                             Add a new newsletter agent, or configure an existing newsletter agent by clicking the settings icon on the right.
                         </p>
                         <p class="help-block settings-warning" id="newsletter_upload_warning">
-                            Note: Either <a data-tab-destination="tabs-notifications" data-target="#notify_upload_posters">Image Hosting</a> or <a data-tab-destination="tabs-notifications" data-target="#newsletter_self_hosted">Self-Hosted Newsletters</a> must be enabled.</span>
+                            Warning: The <a data-tab-destination="tabs-notifications" data-target="#notify_upload_posters">Image Hosting</a> setting must be enabled for images to display on the newsletter.</span>
                         </p>
                         <br/>
                         <div id="plexpy-newsletters-table">
@@ -1173,14 +1248,6 @@
                                 </div>
                             </div>
                         </div>
-                        <div class="form-group">
-                            <label for="newsletter_dir">Newsletter Directory</label>
-                            <div class="row">
-                                <div class="col-md-6">
-                                    <input type="text" class="form-control directory-settings" id="newsletter_dir" name="newsletter_dir" value="${config['newsletter_dir']}">
-                                </div>
-                            </div>
-                        </div>
 
                         <p><input type="button" class="btn btn-bright save-button" value="Save" data-success="Changes saved successfully"></p>
 
@@ -1201,7 +1268,7 @@
                                 </span>
                             </p>
                         </div>
-                        <p class="form-group">
+                        <div class="form-group">
                             <label>Registered Devices</label>
                             <p class="help-block">Register a new device using a QR code, or configure an existing device by clicking the settings icon on the right.</p>
                             <p id="app_api_msg" style="color: #eb8600;">The API must be enabled under <a data-tab-destination="tabs-web_interface" data-target="#api_enabled">Web Interface</a> to use the app.</p>
@@ -1356,7 +1423,7 @@
                         <div class="col-md-12">
                             <ul class="stacked-configs list-unstyled">
                                 % for agent in sorted(available_notification_agents, key=lambda k: k['label'].lower()):
-                                <li class="new-notification-agent" data-id="${agent['id']}">
+                                <li class="new-notification-agent pointer" data-id="${agent['id']}">
                                     <span>${agent['label']}</span>
                                 </li>
                                 % endfor
@@ -1384,7 +1451,7 @@
                         <div class="col-md-12">
                             <ul class="stacked-configs list-unstyled">
                                 % for agent in available_newsletter_agents:
-                                <li class="new-newsletter-agent" data-id="${agent['id']}">
+                                <li class="new-newsletter-agent pointer" data-id="${agent['id']}">
                                     <span>${agent['label']}</span>
                                 </li>
                                 % endfor
@@ -1726,6 +1793,7 @@
     }
 
     function loadNotifierConfig(notifier_id) {
+        showMsg('<i class="fa fa-refresh fa-spin"></i>&nbsp; Loading Configuration', false);
         $.ajax({
             url: 'get_notifier_config_modal',
             data: { notifier_id: notifier_id },
@@ -1733,6 +1801,7 @@
             async: true,
             complete: function (xhr, status) {
                 $("#notifier-config-modal").html(xhr.responseText).modal('show');
+                showMsg('<i class="fa fa-check"></i> Configuration Loaded', false, true, 2000);
             }
         });
     }
@@ -1749,6 +1818,7 @@
     }
 
     function loadNewsletterConfig(newsletter_id) {
+        showMsg('<i class="fa fa-refresh fa-spin"></i>&nbsp; Loading Configuration', false);
         $.ajax({
             url: 'get_newsletter_config_modal',
             data: { newsletter_id: newsletter_id },
@@ -1756,6 +1826,7 @@
             async: true,
             complete: function (xhr, status) {
                 $("#newsletter-config-modal").html(xhr.responseText).modal('show');
+                showMsg('<i class="fa fa-check"></i> Configuration Loaded', false, true, 2000);
             }
         });
     }
@@ -1772,6 +1843,7 @@
     }
 
     function loadMobileDeviceConfig(mobile_device_id) {
+        showMsg('<i class="fa fa-refresh fa-spin"></i>&nbsp; Loading Configuration', false);
         $.ajax({
             url: 'get_mobile_device_config_modal',
             data: { mobile_device_id: mobile_device_id },
@@ -1779,6 +1851,7 @@
             async: true,
             complete: function (xhr, status) {
                 $("#mobile-device-config-modal").html(xhr.responseText).modal('show');
+                showMsg('<i class="fa fa-check"></i> Configuration Loaded', false, true, 2000);
             }
         });
     }
@@ -2285,7 +2358,7 @@ $(document).ready(function() {
             data: { pref: 'PublishServerOnPlexOnlineKey' },
             async: true,
             success: function(data) {
-                if (data !== 'true') {
+                if (data === 'false' || data === '0') {
                     $("#remoteAccessCheck").html("Remote access must be enabled on your Plex Server. <a target='_blank' href='${anon_url('https://support.plex.tv/hc/en-us/articles/200484543-Enabling-Remote-Access-for-a-Server')}'>Click here</a> for help.");
                     $("#monitor_remote_access").attr("checked", false).attr("disabled", true);
                 }
@@ -2420,6 +2493,7 @@ $(document).ready(function() {
             $("#allow_guest_access").attr("disabled", false);
             $("#allowGuestCheck").html("");
         }
+        newsletterPasswordEnabled();
     }
     allowGuestAccessCheck();
 
@@ -2523,7 +2597,7 @@ $(document).ready(function() {
                 var result = $.parseJSON(xhr.responseText);
                 var msg = result.message;
                 $('#add-notifier-modal').modal('hide');
-                if (result.result == 'success') {
+                if (result.result === 'success') {
                     showMsg('<i class="fa fa-check"></i> ' + msg, false, true, 5000);
                     loadNotifierConfig(result.notifier_id);
                 } else {
@@ -2545,7 +2619,7 @@ $(document).ready(function() {
                 var result = $.parseJSON(xhr.responseText);
                 var msg = result.message;
                 $('#add-newsletter-modal').modal('hide');
-                if (result.result == 'success') {
+                if (result.result === 'success') {
                     showMsg('<i class="fa fa-check"></i> ' + msg, false, true, 5000);
                     loadNewsletterConfig(result.newsletter_id);
                 } else {
@@ -2586,9 +2660,35 @@ $(document).ready(function() {
         } else {
             $('#cloudinary_upload_options').slideUp();
         }
+        var parent;
+        if (upload_val === '1' || upload_val === '3') {
+            parent = $('#notify_upload_posters').parent();
+            if ($('#delete_all_uploads_container').length === 0){
+                parent.addClass('input-group');
+                parent.append(
+                    '<span class="input-group-btn" id="delete_all_uploads_container">' +
+                    '<button class="btn btn-form" type="button" id="delete_all_uploads">Delete All Uploads</button>' +
+                    '</span>');
+            }
+        } else {
+            parent = $('#notify_upload_posters').parent();
+            parent.removeClass('input-group');
+            $('#delete_all_uploads_container').remove();
+        }
     }
     $('#notify_upload_posters').change(function () {
         imageUpload();
+    });
+
+    $('body').on('click', '#delete_all_uploads', function () {
+        var image_hosting_option = $('#notify_upload_posters').find(':selected');
+        var name = image_hosting_option.text();
+
+        var msg = 'Are you sure you want to delete all uploaded images on <strong>' + name + '</strong>?' +
+            '<br />All previous links to the images will no longer work. This cannot be undone!';
+        var url = 'delete_hosted_images';
+        var data = { service: name, delete_all: true };
+        confirmAjaxCall(url, msg, data, false);
     });
 
     function baseURLSet() {
@@ -2605,10 +2705,10 @@ $(document).ready(function() {
     });
 
     function newsletterUploadEnabled() {
-        if ($('#notify_upload_posters').val() !== '2' || $('#newsletter_self_hosted').is(':checked')) {
-            $('#newsletter_upload_warning').hide();
-        } else {
+        if ($('#notify_upload_posters').val() === '0') {
             $('#newsletter_upload_warning').show();
+        } else {
+            $('#newsletter_upload_warning').hide();
         }
     }
     newsletterUploadEnabled();
@@ -2617,6 +2717,28 @@ $(document).ready(function() {
         baseURLSet();
         newsletterUploadEnabled();
     });
+
+    function newsletterPasswordEnabled() {
+        if ($('#newsletter_auth').val() === '1') {
+            $('#newsletter_password_option').slideDown();
+        } else {
+            $('#newsletter_password_option').slideUp();
+        }
+        if ($('#newsletter_auth').val() === '2' && !($('#allow_guest_access').is(':checked'))) {
+            $('.newsletter-guest-access-warning').show();
+        } else {
+            $('.newsletter-guest-access-warning').hide();
+        }
+    }
+    newsletterPasswordEnabled();
+
+    $('#newsletter_auth').change(function () {
+        newsletterPasswordEnabled();
+    });
+
+    $('#allow_guest_access').click(function () {
+        newsletterPasswordEnabled();
+    })
 
     $('body').on('click', 'a[data-tab-destination]', function () {
         var tab = $(this).data('tab-destination');
@@ -2630,6 +2752,10 @@ $(document).ready(function() {
             var scroll_pos = scroll_destination ? body_container.scrollTop() + $(scroll_destination).offset().top - 100 : 0;
             body_container.animate({scrollTop: scroll_pos});
         }
+    });
+
+    $('#resources-xml').on('tripleclick', function () {
+        openPlexXML('/api/resources', true, {includeHttps: 1});
     });
 });
 </script>

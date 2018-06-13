@@ -37,6 +37,8 @@ import logger
 import mobile_app
 import notification_handler
 import notifiers
+import newsletter_handler
+import newsletters
 import users
 
 
@@ -443,6 +445,51 @@ class API2:
 
         return
 
+    def notify_newsletter(self, newsletter_id='', subject='', body='', message='', **kwargs):
+        """ Send a newsletter using Tautulli.
+
+            ```
+            Required parameters:
+                newsletter_id (int):    The ID number of the newsletter agent
+
+            Optional parameters:
+                subject (str):          The subject of the newsletter
+                body (str):             The body of the newsletter
+                message (str):          The message of the newsletter
+
+            Returns:
+                None
+            ```
+        """
+        if not newsletter_id:
+            self._api_msg = 'Newsletter failed: no newsletter id provided.'
+            self._api_result_type = 'error'
+            return
+
+        newsletter = newsletters.get_newsletter_config(newsletter_id=newsletter_id)
+
+        if not newsletter:
+            self._api_msg = 'Newsletter failed: invalid newsletter_id provided %s.' % newsletter_id
+            self._api_result_type = 'error'
+            return
+
+        logger.api_debug(u'Tautulli APIv2 :: Sending newsletter.')
+        success = newsletter_handler.notify(newsletter_id=newsletter_id,
+                                            notify_action='api',
+                                            subject=subject,
+                                            body=body,
+                                            message=message,
+                                            **kwargs)
+
+        if success:
+            self._api_msg = 'Newsletter sent.'
+            self._api_result_type = 'success'
+        else:
+            self._api_msg = 'Newsletter failed.'
+            self._api_result_type = 'error'
+
+        return
+
     def _api_make_md(self):
         """ Tries to make a API.md to simplify the api docs. """
 
@@ -564,6 +611,7 @@ General optional parameters:
             # if we fail to generate the output fake an error
             except Exception as e:
                 logger.api_exception(u'Tautulli APIv2 :: ' + traceback.format_exc())
+                cherrypy.response.status = 500
                 out['message'] = traceback.format_exc()
                 out['result'] = 'error'
 
@@ -573,6 +621,7 @@ General optional parameters:
                 out = xmltodict.unparse(out, pretty=True)
             except Exception as e:
                 logger.api_error(u'Tautulli APIv2 :: Failed to parse xml result')
+                cherrypy.response.status = 500
                 try:
                     out['message'] = e
                     out['result'] = 'error'
@@ -613,6 +662,7 @@ General optional parameters:
                 result = call(**self._api_kwargs)
             except Exception as e:
                 logger.api_error(u'Tautulli APIv2 :: Failed to run %s with %s: %s' % (self._api_cmd, self._api_kwargs, e))
+                cherrypy.response.status = 400
                 if self._api_debug:
                     cherrypy.request.show_tracebacks = True
                     # Reraise the exception so the traceback hits the browser
@@ -656,5 +706,8 @@ General optional parameters:
 
             if ret.get('result'):
                 self._api_result_type = ret.pop('result', None)
+
+        if self._api_result_type == 'error':
+            cherrypy.response.status = 500
 
         return self._api_out_as(self._api_responds(result_type=self._api_result_type, msg=self._api_msg, data=ret))

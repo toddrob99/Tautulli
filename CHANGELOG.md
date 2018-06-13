@@ -1,5 +1,97 @@
 # Changelog
 
+## v2.1.12 (2018-06-08)
+
+* Notifications:
+  * Change: Blank notification link source means disabled instead of default.
+* Newsletters:
+  * New: Make collection tags available in the raw newsletter data for custom templates.
+* API:
+  * New: Ability to terminate a stream using the session key.
+
+
+## v2.1.11-beta (2018-06-02)
+
+* Monitoring:
+  * Fix: Activity progress bar not updating in some cases.
+  * Fix: Monitory Remote Access setting disabled due to Plex Media Server API changes.
+  * Change: Improved logic for grouping history items without being successive plays.
+* Notifications:
+  * New: Added filename to notification parameters.
+* Other:
+  * Fix: Update metadata failing for tracks without track numbers.
+
+
+## v2.1.10-beta (2018-05-28)
+
+* Monitoring:
+  * Fix: Improved monitoring of live tv sessions.
+  * Change: Use track artist instead of album artist.
+* Notifications:
+  * New: Added timestamp to Discord notification embeds. (Thanks @samwiseg00)
+  * New: Enable notifications for "clip" media types.
+  * Fix: Actually add the "live" notification parameter.
+  * Change: Update Twitter for 280 characters.
+  * Change: Use HTTPS url for Cloudinary images.
+* Newsletters:
+  * Fix: Artist summaries not showing up on newsletter cards.
+  * Change: Do not send the newsletter if the template fails to render.
+
+
+## v2.1.9 (2018-05-21)
+
+* Notifications:
+  * New: Added "live" to notification parameters.
+
+
+## v2.1.8-beta (2018-05-19)
+
+* Newsletters:
+  * New: Added authentication options for self-hosted newsletters.
+  * Change: Check if the Tautulli footer has been removed in custom newsletter templates.
+* Notifications:
+  * Fix: Cloudinary images not working for Twitter notifications.
+* API:
+  * Fix: Return proper HTTP status codes for errors.
+
+
+## v2.1.7-beta (2018-05-13)
+
+* Newsletters:
+  * New: Option to toggle between inline or internal CSS style templates.
+  * New: Button to delete all uploaded images from Imgur/Cloudinary.
+  * Fix: Long titles overflowing the newsletter cards.
+  * Change: Self-hosted images on newsletters to use the /image endpoint instead of proxying through /newsletter/image.
+  * Change: Strip whitespace from newsletter for smaller file size before sending to email.
+* API:
+  * New: Added get_stream_data command to API.
+  * New: Added newsletter API commands to documentation.
+
+
+## v2.1.6-beta (2018-05-09)
+
+* Newsletters:
+  * Change: Setting to specify static URL ID name instead of using the newsletter ID number.
+  * Change: Reorganize newsletter config options.
+
+
+## v2.1.5-beta (2018-05-07)
+
+* Newsletters:
+  * New: Added setting for a custom newsletter template folder.
+  * New: Added option to enable static newsletter URLs to retrieve the last sent scheduled newsletter.
+  * New: Added ability to change the newsletter output directory and filenames.
+  * New: Added option to save the newsletter file without sending it to a notification agent.
+  * Fix: Check for disabled image hosting setting.
+  * Fix: Cache newsletter images when refreshing the page.
+  * Fix: Refresh image from the Plex server when uploading to image hosting.
+  * Change: Allow all image hosting options with self-hosted newsletters.
+* UI:
+  * Change: Don't retrieve recently added on the homepage if the Plex Cloud server is sleeping.
+* Other:
+  * Fix: Imgur database upgrade migration.
+
+
 ## v2.1.4 (2018-05-05)
 
 * Newsletters:

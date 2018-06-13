@@ -18,6 +18,7 @@ import json
 import os
 import shutil
 import threading
+import urllib
 
 import cherrypy
 from cherrypy.lib.static import serve_file, serve_download
@@ -56,7 +57,7 @@ import web_socket
 from plexpy.api2 import API2
 from plexpy.helpers import checked, addtoapi, get_ip, create_https_certificates, build_datatables_json
 from plexpy.session import get_session_info, get_session_user_id, allow_session_user, allow_session_library
-from plexpy.webauth import AuthController, requireAuth, member_of, name_is
+from plexpy.webauth import AuthController, requireAuth, member_of
 
 
 def serve_template(templatename, **kwargs):
@@ -247,23 +248,23 @@ class WebInterface(object):
     @cherrypy.tools.json_out()
     @requireAuth(member_of("admin"))
     @addtoapi()
-    def terminate_session(self, session_id=None, message=None, **kwargs):
-        """ Add a new notification agent.
+    def terminate_session(self, session_key=None, session_id=None, message=None, **kwargs):
+        """ Stop a streaming session.
 
             ```
             Required parameters:
-                session_id (str):           The id of the session to terminate
-                message (str):              A custom message to send to the client
+                session_key (int):          The session key of the session to terminate, OR
+                session_id (str):           The session id of the session to terminate
 
             Optional parameters:
-                None
+                message (str):              A custom message to send to the client
 
             Returns:
                 None
             ```
         """
         pms_connect = pmsconnect.PmsConnect()
-        result = pms_connect.terminate_session(session_id=session_id, message=message)
+        result = pms_connect.terminate_session(session_key=session_key, session_id=session_id, message=message)
 
         if result:
             return {'result': 'success', 'message': 'Session terminated.'}
@@ -273,8 +274,21 @@ class WebInterface(object):
     @cherrypy.expose
     @cherrypy.tools.json_out()
     @requireAuth(member_of("admin"))
-    def return_sessions_url(self, **kwargs):
-        return plexpy.CONFIG.PMS_URL + '/status/sessions?X-Plex-Token=' + plexpy.CONFIG.PMS_TOKEN
+    def return_plex_xml_url(self, endpoint='', plextv=False, **kwargs):
+        kwargs['X-Plex-Token'] = plexpy.CONFIG.PMS_TOKEN
+
+        if plextv:
+            base_url = 'https://plex.tv'
+        else:
+            if plexpy.CONFIG.PMS_URL_OVERRIDE:
+                base_url = plexpy.CONFIG.PMS_URL_OVERRIDE
+            else:
+                base_url = plexpy.CONFIG.PMS_URL
+
+        if '{machine_id}' in endpoint:
+            endpoint = endpoint.format(machine_id=plexpy.CONFIG.PMS_IDENTIFIER)
+
+        return base_url + endpoint + '?' + urllib.urlencode(kwargs)
 
     @cherrypy.expose
     @requireAuth()
@@ -1614,6 +1628,7 @@ class WebInterface(object):
                           "full_title": "Game of Thrones - The Red Woman",
                           "grandparent_rating_key": 351,
                           "grandparent_title": "Game of Thrones",
+                          "original_title": "",
                           "group_count": 1,
                           "group_ids": "1124",
                           "id": 1124,
@@ -1714,6 +1729,77 @@ class WebInterface(object):
         stream_data = data_factory.get_stream_details(row_id, session_key)
 
         return serve_template(templatename="stream_data.html", title="Stream Data", data=stream_data, user=user)
+
+    @cherrypy.expose
+    @cherrypy.tools.json_out()
+    @requireAuth()
+    @addtoapi('get_stream_data')
+    def get_stream_data_api(self, row_id=None, session_key=None, **kwargs):
+        """ Get the stream details from history or current stream.
+
+            ```
+            Required parameters:
+                row_id (int):       The row ID number for the history item, OR
+                session_key (int):  The session key of the current stream
+
+            Optional parameters:
+                None
+
+            Returns:
+                json:
+                    {"aspect_ratio": "2.35",
+                     "audio_bitrate": 231,
+                     "audio_channels": 6,
+                     "audio_codec": "aac",
+                     "audio_decision": "transcode",
+                     "bitrate": 2731,
+                     "container": "mp4",
+                     "current_session": "",
+                     "grandparent_title": "",
+                     "media_type": "movie",
+                     "optimized_version": "",
+                     "optimized_version_profile": "",
+                     "optimized_version_title": "",
+                     "original_title": "",
+                     "pre_tautulli": "",
+                     "quality_profile": "1.5 Mbps 480p",
+                     "stream_audio_bitrate": 203,
+                     "stream_audio_channels": 2,
+                     "stream_audio_codec": "aac",
+                     "stream_audio_decision": "transcode",
+                     "stream_bitrate": 730,
+                     "stream_container": "mkv",
+                     "stream_container_decision": "transcode",
+                     "stream_subtitle_codec": "",
+                     "stream_subtitle_decision": "",
+                     "stream_video_bitrate": 527,
+                     "stream_video_codec": "h264",
+                     "stream_video_decision": "transcode",
+                     "stream_video_framerate": "24p",
+                     "stream_video_height": 306,
+                     "stream_video_resolution": "SD",
+                     "stream_video_width": 720,
+                     "subtitle_codec": "",
+                     "subtitles": "",
+                     "synced_version": "",
+                     "synced_version_profile": "",
+                     "title": "Frozen",
+                     "transcode_hw_decoding": "",
+                     "transcode_hw_encoding": "",
+                     "video_bitrate": 2500,
+                     "video_codec": "h264",
+                     "video_decision": "transcode",
+                     "video_framerate": "24p",
+                     "video_height": 816,
+                     "video_resolution": "1080",
+                     "video_width": 1920
+                     }
+            ```
+        """
+        data_factory = datafactory.DataFactory()
+        stream_data = data_factory.get_stream_details(row_id, session_key)
+
+        return stream_data
 
     @cherrypy.expose
     @requireAuth()
@@ -2755,7 +2841,11 @@ class WebInterface(object):
             "tvmaze_lookup": checked(plexpy.CONFIG.TVMAZE_LOOKUP),
             "show_advanced_settings": plexpy.CONFIG.SHOW_ADVANCED_SETTINGS,
             "newsletter_dir": plexpy.CONFIG.NEWSLETTER_DIR,
-            "newsletter_self_hosted": checked(plexpy.CONFIG.NEWSLETTER_SELF_HOSTED)
+            "newsletter_self_hosted": checked(plexpy.CONFIG.NEWSLETTER_SELF_HOSTED),
+            "newsletter_auth": plexpy.CONFIG.NEWSLETTER_AUTH,
+            "newsletter_password": plexpy.CONFIG.NEWSLETTER_PASSWORD,
+            "newsletter_inline_styles": checked(plexpy.CONFIG.NEWSLETTER_INLINE_STYLES),
+            "newsletter_custom_dir": plexpy.CONFIG.NEWSLETTER_CUSTOM_DIR
         }
 
         return serve_template(templatename="settings.html", title="Settings", config=config, kwargs=kwargs)
@@ -2777,7 +2867,7 @@ class WebInterface(object):
             "allow_guest_access", "cache_images", "http_proxy", "http_basic_auth", "notify_concurrent_by_ip",
             "history_table_activity", "plexpy_auto_update",
             "themoviedb_lookup", "tvmaze_lookup", "http_plex_admin",
-            "newsletter_self_hosted"
+            "newsletter_self_hosted", "newsletter_inline_styles"
         ]
         for checked_config in checked_configs:
             if checked_config not in kwargs:
@@ -3148,7 +3238,7 @@ class WebInterface(object):
     @requireAuth(member_of("admin"))
     @addtoapi()
     def set_notifier_config(self, notifier_id=None, agent_id=None, **kwargs):
-        """ Configure an exisitng notificaiton agent.
+        """ Configure an existing notification agent.
 
             ```
             Required parameters:
@@ -3267,10 +3357,10 @@ class WebInterface(object):
                 return {'result': 'success', 'message': 'Notification queued.'}
             else:
                 logger.debug(u"Unable to send %snotification, invalid notifier_id %s." % (test, notifier_id))
-                return {'result': 'success', 'message': 'Invalid notifier id %s.' % notifier_id}
+                return {'result': 'error', 'message': 'Invalid notifier id %s.' % notifier_id}
         else:
             logger.debug(u"Unable to send %snotification, no notifier_id received." % test)
-            return {'result': 'success', 'message': 'No notifier id received.'}
+            return {'result': 'error', 'message': 'No notifier id received.'}
 
     @cherrypy.expose
     @cherrypy.tools.json_out()
@@ -3407,7 +3497,7 @@ class WebInterface(object):
     @requireAuth(member_of("admin"))
     @addtoapi()
     def set_mobile_device_config(self, mobile_device_id=None, **kwargs):
-        """ Configure an exisitng notificaiton agent.
+        """ Configure an existing notification agent.
 
             ```
             Required parameters:
@@ -4031,6 +4121,15 @@ class WebInterface(object):
     @cherrypy.expose
     def image(self, *args, **kwargs):
         if args:
+            cherrypy.response.headers['Cache-Control'] = 'max-age=3600'  # 1 hour
+
+            if len(args) >= 2 and args[0] == 'images':
+                resource_dir = os.path.join(str(plexpy.PROG_DIR), 'data/interfaces/default/')
+                try:
+                    return serve_file(path=os.path.join(resource_dir, *args), content_type='image/png')
+                except NotFound:
+                    return
+
             img_hash = args[0].split('.')[0]
 
             if img_hash in ('poster', 'cover', 'art'):
@@ -4048,7 +4147,7 @@ class WebInterface(object):
 
             if img_info:
                 kwargs.update(img_info)
-                return self.real_pms_image_proxy(**kwargs)
+                return self.real_pms_image_proxy(refresh=True, **kwargs)
 
         return
 
@@ -4169,16 +4268,18 @@ class WebInterface(object):
     @cherrypy.tools.json_out()
     @requireAuth(member_of("admin"))
     @addtoapi()
-    def delete_hosted_images(self, rating_key='', service='', **kwargs):
+    def delete_hosted_images(self, rating_key='', service='', delete_all=False, **kwargs):
         """ Delete the images uploaded to image hosting services.
 
             ```
             Required parameters:
+                None
+
+            Optional parameters:
                 rating_key (int):       1234
                                         (Note: Must be the movie, show, season, artist, or album rating key)
-            Optional parameters:
-                service (str):          imgur or cloudinary
-                                        (Note: Defaults to service in Image Hosting setting)
+                service (str):          'imgur' or 'cloudinary'
+                delete_all (bool):      'true' to delete all images form the service
 
             Returns:
                 json:
@@ -4187,8 +4288,10 @@ class WebInterface(object):
             ```
         """
 
+        delete_all = (delete_all == 'true')
+
         data_factory = datafactory.DataFactory()
-        result = data_factory.delete_img_info(rating_key=rating_key, service=service)
+        result = data_factory.delete_img_info(rating_key=rating_key, service=service, delete_all=delete_all)
 
         if result:
             return {'result': 'success', 'message': 'Deleted hosted images from %s.' % result.capitalize()}
@@ -4539,6 +4642,7 @@ class WebInterface(object):
                          }
                      ],
                      "media_type": "episode",
+                     "original_title": "",
                      "originally_available_at": "2016-04-24",
                      "parent_media_index": "6",
                      "parent_rating_key": "153036",
@@ -4597,6 +4701,7 @@ class WebInterface(object):
                           "library_name": "",
                           "media_index": "1",
                           "media_type": "episode",
+                          "original_title": "",
                           "parent_media_index": "6",
                           "parent_rating_key": "153036",
                           "parent_thumb": "/library/metadata/153036/thumb/1462175062",
@@ -4868,6 +4973,7 @@ class WebInterface(object):
                              "optimized_version_profile": "",
                              "optimized_version_title": "",
                              "originally_available_at": "2016-04-24",
+                             "original_title": "",
                              "parent_media_index": "6",
                              "parent_rating_key": "153036",
                              "parent_thumb": "/library/metadata/153036/thumb/1503889210",
@@ -5467,7 +5573,7 @@ class WebInterface(object):
             Returns:
                 json:
                     [{"id": 1,
-                      "agent_id": 13,
+                      "agent_id": 0,
                       "agent_name": "recently_added",
                       "agent_label": "Recently Added",
                       "friendly_name": "",
@@ -5527,15 +5633,24 @@ class WebInterface(object):
             Returns:
                 json:
                     {"id": 1,
-                     "agent_id": 13,
+                     "agent_id": 0,
                      "agent_name": "recently_added",
                      "agent_label": "Recently Added",
                      "friendly_name": "",
+                     "id_name": "",
                      "cron": "0 0 * * 1",
-                     "active": 1
-                     "config": {"time_frame": 7,
-                                "time_frame_units": "days",
-                                "incl_libraries": [1, 2]
+                     "active": 1,
+                     "subject": "Recently Added to {server_name}! ({end_date})",
+                     "body": "View the newsletter here: {newsletter_url}",
+                     "message": "",
+                     "config": {"custom_cron": 0,
+                                "filename": "newsletter_{newsletter_uuid}.html",
+                                "formatted": 1,
+                                "incl_libraries": ["1", "2"],
+                                "notifier_id": 1,
+                                "save_only": 0,
+                                "time_frame": 7,
+                                "time_frame_units": "days"
                                 },
                      "email_config": {...},
                      "config_options": [{...}, ...],
@@ -5582,19 +5697,15 @@ class WebInterface(object):
     @requireAuth(member_of("admin"))
     @addtoapi()
     def set_newsletter_config(self, newsletter_id=None, agent_id=None, **kwargs):
-        """ Configure an exisitng notificaiton agent.
+        """ Configure an existing newsletter agent.
 
             ```
             Required parameters:
-                newsletter_id (int):            The newsletter config to update
-                agent_id (int):       The newsletter type of the newsletter
+                newsletter_id (int):    The newsletter config to update
+                agent_id (int):         The newsletter type of the newsletter
 
             Optional parameters:
-                Pass all the config options for the agent with the agent prefix:
-                    e.g. For Recently Added: recently_added_last_days
-                                             recently_added_incl_movies
-                                             recently_added_incl_shows
-                                             recently_added_incl_artists
+                Pass all the config options for the agent with the 'newsletter_config_' and 'newsletter_email_' prefix.
 
             Returns:
                 None
@@ -5612,7 +5723,6 @@ class WebInterface(object):
     @cherrypy.expose
     @cherrypy.tools.json_out()
     @requireAuth(member_of("admin"))
-    @addtoapi("notify_newsletter")
     def send_newsletter(self, newsletter_id=None, subject='', body='', message='', notify_action='', **kwargs):
         """ Send a newsletter using Tautulli.
 
@@ -5652,7 +5762,29 @@ class WebInterface(object):
 
     @cherrypy.expose
     def newsletter(self, *args, **kwargs):
+        request_uri = cherrypy.request.wsgi_environ['REQUEST_URI']
+        if plexpy.CONFIG.NEWSLETTER_AUTH == 2:
+            redirect_uri = request_uri.replace('/newsletter', '/newsletter_auth')
+            raise cherrypy.HTTPRedirect(redirect_uri)
+
+        elif plexpy.CONFIG.NEWSLETTER_AUTH == 1 and plexpy.CONFIG.NEWSLETTER_PASSWORD:
+            if len(args) >= 2 and args[0] == 'image':
+                return self.newsletter_auth(*args, **kwargs)
+            elif kwargs.pop('key', None) == plexpy.CONFIG.NEWSLETTER_PASSWORD:
+                return self.newsletter_auth(*args, **kwargs)
+            else:
+                return serve_template(templatename="newsletter_auth.html",
+                                      title="Newsletter Login",
+                                      uri=request_uri)
+
+        else:
+            return self.newsletter_auth(*args, **kwargs)
+
+    @cherrypy.expose
+    @requireAuth()
+    def newsletter_auth(self, *args, **kwargs):
         if args:
+            # Keep this for backwards compatibility for images through /newsletter/image
             if len(args) >= 2 and args[0] == 'image':
                 if args[1] == 'images':
                     resource_dir = os.path.join(str(plexpy.PROG_DIR), 'data/interfaces/default/')
@@ -5661,10 +5793,17 @@ class WebInterface(object):
                     except NotFound:
                         return
 
-                return self.image(args[1], refresh=True)
+                return self.image(args[1])
 
-            newsletter_uuid = args[0]
-            newsletter = newsletter_handler.get_newsletter(newsletter_uuid=newsletter_uuid)
+            if len(args) >= 2 and args[0] == 'id':
+                newsletter_id_name = args[1]
+                newsletter_uuid = None
+            else:
+                newsletter_id_name = None
+                newsletter_uuid = args[0]
+
+            newsletter = newsletter_handler.get_newsletter(newsletter_uuid=newsletter_uuid,
+                                                           newsletter_id_name=newsletter_id_name)
             return newsletter
 
     @cherrypy.expose
@@ -5678,12 +5817,14 @@ class WebInterface(object):
     @cherrypy.expose
     @requireAuth(member_of("admin"))
     def real_newsletter(self, newsletter_id=None, start_date=None, end_date=None,
-                        preview=False, master=False, raw=False, **kwargs):
+                        preview=False, raw=False, **kwargs):
         if newsletter_id and newsletter_id != 'None':
             newsletter = newsletters.get_newsletter_config(newsletter_id=newsletter_id)
 
             if newsletter:
-                newsletter_agent = newsletters.get_agent_class(agent_id=newsletter['agent_id'],
+                newsletter_agent = newsletters.get_agent_class(newsletter_id=newsletter_id,
+                                                               newsletter_id_name=newsletter['id_name'],
+                                                               agent_id=newsletter['agent_id'],
                                                                config=newsletter['config'],
                                                                start_date=start_date,
                                                                end_date=end_date,
@@ -5691,14 +5832,13 @@ class WebInterface(object):
                                                                body=newsletter['body'],
                                                                message=newsletter['message'])
                 preview = (preview == 'true')
-                master = (master == 'true')
                 raw = (raw == 'true')
 
                 if raw:
                     cherrypy.response.headers['Content-Type'] = 'application/json;charset=UTF-8'
                     return json.dumps(newsletter_agent.raw_data(preview=preview))
 
-                return newsletter_agent.generate_newsletter(preview=preview, master=master)
+                return newsletter_agent.generate_newsletter(preview=preview)
 
             logger.error(u"Failed to retrieve newsletter: Invalid newsletter_id %s" % newsletter_id)
             return "Failed to retrieve newsletter: invalid newsletter_id parameter"

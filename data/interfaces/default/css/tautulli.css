@@ -70,6 +70,7 @@ div.form-control .selectize-input {
     background-color: #555;
     border-radius: 3px;
     transition: background-color .3s;
+    height: 32px !important;
 }
 .react-selectize.root-node .react-selectize-control,
 .selectize-control.form-control .selectize-input {
@@ -2934,6 +2935,7 @@ a .home-platforms-list-cover-face:hover
 }
 .stacked-configs > li > span > a.toggle-left,
 .stacked-configs > li > span > span.toggle-left {
+    float: left;
     color: #444;
     padding-right: 8px;
 }
@@ -2943,16 +2945,6 @@ a .home-platforms-list-cover-face:hover
 .stacked-configs > li > span > a.active,
 .stacked-configs > li > span > span.active {
     color: #f9be03;
-}
-.stacked-configs > li.new-notification-agent,
-.stacked-configs > li.notification-agent,
-.stacked-configs > li.add-notification-agent,
-.stacked-configs > li.new-newsletter-agent,
-.stacked-configs > li.newsletter-agent,
-.stacked-configs > li.add-newsletter-agent,
-.stacked-configs > li.mobile-device,
-.stacked-configs > li.add-mobile-device {
-    cursor: pointer;
 }
 .stacked-configs > li.mobile-device > span > a.toggle-left,
 .stacked-configs > li.mobile-device > span > span.toggle-left {
@@ -3524,8 +3516,7 @@ a.no-highlight:hover {
 }
 .login-logo {
     margin: 0 auto 50px auto;
-    width: 340px;
-    height: 100px;
+    text-align: center;
 }
 .login-container .form-group {
     margin-bottom: 20px;
@@ -4091,5 +4082,17 @@ a:hover .overlay-refresh-image:hover {
     100% { transform: rotate(360deg); }
 }
 a[data-tab-destination] {
+    cursor: pointer;
+}
+.modal-config-section {
+    margin-top: 10px !important;
+    padding-top: 10px;
+    border-top: 1px solid #444;
+}
+.newsletter-logo {
+    margin: 0 auto 50px auto;
+    text-align: center;
+}
+.pointer {
     cursor: pointer;
 }
