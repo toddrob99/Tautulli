@@ -1,5 +1,26 @@
 # Changelog
 
+## v2.1.14 (2018-06-21)
+
+* Notifications:
+  * Fix: Parsing script arguments in quotes.
+* UI:
+  * Fix: Slow loading due to Font Awesome 5 javascript.
+  * Change: Play counts on user an library pages now respect the history grouping setting.
+* API:
+  * New: Added optional grouping parameter to user and library watch statistics.
+
+
+## v2.1.13 (2018-06-16)
+
+* Monitoring:
+  * Fix: Soft crash when viewing photos not in an album.
+* Notifications:
+  * New: Added current date and time notification parameters.
+* UI:
+  * New: Added support page with embedded Discord chat using WidgetBot.
+
+
 ## v2.1.12 (2018-06-08)
 
 * Notifications:
