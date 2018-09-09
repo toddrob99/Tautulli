@@ -1,9 +1,15 @@
 # API Reference
 
-The API is still pretty new and needs some serious cleaning up on the backend but should be reasonably functional. There are no error codes yet.
-
 ## General structure
-The API endpoint is `http://ip:port + HTTP_ROOT + /api/v2?apikey=$apikey&cmd=$command`
+The API endpoint is
+```
+http://IP_ADDRESS:PORT + [/HTTP_ROOT] + /api/v2?apikey=$apikey&cmd=$command
+```
+
+Example:
+```
+http://localhost:8181/api/v2?apikey=66198313a092496b8a725867d2223b5f&cmd=get_metadata&rating_key=153037
+```
 
 Response example (default `json`)
 ```
@@ -354,7 +360,8 @@ Required parameters:
     None
 
 Optional parameters:
-    None
+    session_key (int):    Session key for the session info to return, OR
+    session_id (str):     Session ID for the session info to return
 
 Returns:
     json:
@@ -373,6 +380,7 @@ Returns:
                  "art": "/library/metadata/1219/art/1503306930",
                  "aspect_ratio": "1.78",
                  "audience_rating": "",
+                 "audience_rating_image": "rottentomatoes://image.rating.upright",
                  "audio_bitrate": "384",
                  "audio_bitrate_mode": "",
                  "audio_channel_layout": "5.1(side)",
@@ -449,6 +457,7 @@ Returns:
                  "progress_percent": "0",
                  "quality_profile": "Original",
                  "rating": "7.8",
+                 "rating_image": "rottentomatoes://image.rating.ripe",
                  "rating_key": "153037",
                  "relay": 0,
                  "section_id": "2",
@@ -1084,6 +1093,7 @@ Returns:
          "added_at": "1461572396",
          "art": "/library/metadata/1219/art/1462175063",
          "audience_rating": "8",
+         "audience_rating_image": "rottentomatoes://image.rating.upright",
          "banner": "/library/metadata/1219/banner/1462175063",
          "collections": [],
          "content_rating": "TV-MA",
@@ -1137,7 +1147,8 @@ Returns:
                                  "video_language_code": "",
                                  "video_profile": "high",
                                  "video_ref_frames": "4",
-                                 "video_width": "1920"
+                                 "video_width": "1920",
+                                 "selected": 0
                              },
                              {
                                  "audio_bitrate": "384",
@@ -1150,7 +1161,8 @@ Returns:
                                  "audio_profile": "",
                                  "audio_sample_rate": "48000",
                                  "id": "511664",
-                                 "type": "2"
+                                 "type": "2",
+                                 "selected": 1
                              },
                              {
                                  "id": "511953",
@@ -1161,7 +1173,8 @@ Returns:
                                  "subtitle_language": "English",
                                  "subtitle_language_code": "eng",
                                  "subtitle_location": "external",
-                                 "type": "3"
+                                 "type": "3",
+                                 "selected": 1
                              }
                          ]
                      }
@@ -1181,6 +1194,7 @@ Returns:
          "parent_thumb": "/library/metadata/153036/thumb/1462175062",
          "parent_title": "",
          "rating": "7.8",
+         "rating_image": "rottentomatoes://image.rating.ripe",
          "rating_key": "153037",
          "section_id": "2",
          "sort_title": "Game of Thrones",
@@ -2293,15 +2307,21 @@ Optional parameters:
 
 Returns:
     json:
-        [{"email": "Jon.Snow.1337@CastleBlack.com",
+        [{"allow_guest": 1,
+          "do_notify": 1,
+          "email": "Jon.Snow.1337@CastleBlack.com",
           "filter_all": "",
           "filter_movies": "",
           "filter_music": "",
           "filter_photos": "",
           "filter_tv": "",
-          "is_allow_sync": null,
-          "is_home_user": "1",
-          "is_restricted": "0",
+          "is_admin": 0,
+          "is_allow_sync": 1,
+          "is_home_user": 1,
+          "is_restricted": 0,
+          "keep_history": 1,
+          "server_token": "PU9cMuQZxJKFBtGqHk68",
+          "shared_libraries": "1;2;3",
           "thumb": "https://plex.tv/users/k10w42309cynaopq/avatar",
           "user_id": "133788",
           "username": "Jon Snow"
@@ -2425,7 +2445,7 @@ Required parameters:
     body (str):             The body of the message
 
 Optional parameters:
-    None
+    script_args (str):      The arguments for script notifications
 
 Returns:
     None
@@ -2486,6 +2506,7 @@ Optional parameters:
     img_format (str):       png
     fallback (str):         "poster", "cover", "art"
     refresh (bool):         True or False whether to refresh the image cache
+    return_hash (bool):     True or False to return the self-hosted image hash instead of the image
 
 Returns:
     None

@@ -121,7 +121,7 @@ class PlexTV(object):
     Plex.tv authentication
     """
 
-    def __init__(self, username=None, password=None, token=None):
+    def __init__(self, username=None, password=None, token=None, headers=None):
         self.username = username
         self.password = password
         self.token = token
@@ -147,7 +147,8 @@ class PlexTV(object):
         self.request_handler = http_handler.HTTPHandler(urls=self.urls,
                                                         token=self.token,
                                                         timeout=self.timeout,
-                                                        ssl_verify=self.ssl_verify)
+                                                        ssl_verify=self.ssl_verify,
+                                                        headers=headers)
 
     def get_plex_auth(self, output_format='raw'):
         uri = '/users/sign_in.xml'
@@ -210,21 +211,61 @@ class PlexTV(object):
 
 
     def get_server_token(self):
-        servers = self.get_plextv_server_list(output_format='xml')
+        servers = self.get_plextv_resources(output_format='xml')
         server_token = ''
 
         try:
-            xml_head = servers.getElementsByTagName('Server')
+            xml_head = servers.getElementsByTagName('Device')
         except Exception as e:
             logger.warn(u"Tautulli PlexTV :: Unable to parse XML for get_server_token: %s." % e)
             return None
 
         for a in xml_head:
-            if helpers.get_xml_attr(a, 'machineIdentifier') == plexpy.CONFIG.PMS_IDENTIFIER:
+            if helpers.get_xml_attr(a, 'clientIdentifier') == plexpy.CONFIG.PMS_IDENTIFIER \
+                    and 'server' in helpers.get_xml_attr(a, 'provides'):
                 server_token = helpers.get_xml_attr(a, 'accessToken')
                 break
 
         return server_token
+
+    def get_plextv_pin(self, pin='', output_format=''):
+        if pin:
+            uri = '/api/v2/pins/' + pin
+            request = self.request_handler.make_request(uri=uri,
+                                                        request_type='GET',
+                                                        output_format=output_format,
+                                                        no_token=True)
+        else:
+            uri = '/api/v2/pins?strong=true'
+            request = self.request_handler.make_request(uri=uri,
+                                                        request_type='POST',
+                                                        output_format=output_format,
+                                                        no_token=True)
+        return request
+
+    def get_pin(self, pin=''):
+        plextv_response = self.get_plextv_pin(pin=pin,
+                                              output_format='xml')
+
+        if plextv_response:
+            try:
+                xml_head = plextv_response.getElementsByTagName('pin')
+                if xml_head:
+                    pin = {'id': xml_head[0].getAttribute('id'),
+                           'code': xml_head[0].getAttribute('code'),
+                           'token': xml_head[0].getAttribute('authToken')
+                           }
+                    return pin
+                else:
+                    logger.warn(u"Tautulli PlexTV :: Could not get Plex authentication pin.")
+                    return None
+
+            except Exception as e:
+                logger.warn(u"Tautulli PlexTV :: Unable to parse XML for get_pin: %s." % e)
+                return None
+
+        else:
+            return None
 
     def get_plextv_user_data(self):
         plextv_response = self.get_plex_auth(output_format='dict')
@@ -355,8 +396,8 @@ class PlexTV(object):
                            "username": helpers.get_xml_attr(a, 'username'),
                            "thumb": helpers.get_xml_attr(a, 'thumb'),
                            "email": helpers.get_xml_attr(a, 'email'),
-                           "is_home_user": helpers.get_xml_attr(a, 'home'),
                            "is_admin": 1,
+                           "is_home_user": helpers.get_xml_attr(a, 'home'),
                            "is_allow_sync": 1,
                            "is_restricted": helpers.get_xml_attr(a, 'restricted'),
                            "filter_all": helpers.get_xml_attr(a, 'filterAll'),
@@ -645,6 +686,27 @@ class PlexTV(object):
 
     def discover(self, include_cloud=True, all_servers=False):
         """ Query plex for all servers online. Returns the ones you own in a selectize format """
+
+        # Try to discover localhost server
+        local_machine_identifier = None
+        request_handler = http_handler.HTTPHandler(urls='http://127.0.0.1:32400', timeout=1,
+                                                   ssl_verify=False, silent=True)
+        request = request_handler.make_request(uri='/identity', request_type='GET', output_format='xml')
+        if request:
+            xml_head = request.getElementsByTagName('MediaContainer')[0]
+            local_machine_identifier = xml_head.getAttribute('machineIdentifier')
+
+        local_server = {'httpsRequired': '0',
+                        'clientIdentifier': local_machine_identifier,
+                        'label': 'Local',
+                        'ip': '127.0.0.1',
+                        'port': '32400',
+                        'uri': 'http://127.0.0.1:32400',
+                        'local': '1',
+                        'value': '127.0.0.1:32400',
+                        'is_cloud': False
+                        }
+
         servers = self.get_plextv_resources(include_https=True, output_format='xml')
         clean_servers = []
 
@@ -664,8 +726,8 @@ class PlexTV(object):
 
                 for d in devices:
                     if helpers.get_xml_attr(d, 'presence') == '1' and \
-                        helpers.get_xml_attr(d, 'owned') == '1' and \
-                        helpers.get_xml_attr(d, 'provides') == 'server':
+                            helpers.get_xml_attr(d, 'owned') == '1' and \
+                            helpers.get_xml_attr(d, 'provides') == 'server':
 
                         is_cloud = (helpers.get_xml_attr(d, 'platform').lower() == 'cloud')
                         if not include_cloud and is_cloud:
@@ -677,13 +739,19 @@ class PlexTV(object):
                             if not all_servers:
                                 # If this is a remote server don't show any local IPs.
                                 if helpers.get_xml_attr(d, 'publicAddressMatches') == '0' and \
-                                    helpers.get_xml_attr(c, 'local') == '1':
+                                        helpers.get_xml_attr(c, 'local') == '1':
                                     continue
 
                                 # If this is a local server don't show any remote IPs.
                                 if helpers.get_xml_attr(d, 'publicAddressMatches') == '1' and \
-                                    helpers.get_xml_attr(c, 'local') == '0':
+                                        helpers.get_xml_attr(c, 'local') == '0':
                                     continue
+
+                            if helpers.get_xml_attr(d, 'clientIdentifier') == local_machine_identifier:
+                                local_server['httpsRequired'] = helpers.get_xml_attr(d, 'httpsRequired')
+                                local_server['label'] = helpers.get_xml_attr(d, 'name')
+                                clean_servers.append(local_server)
+                                local_machine_identifier = None
 
                             server = {'httpsRequired': '1' if is_cloud else helpers.get_xml_attr(d, 'httpsRequired'),
                                       'clientIdentifier': helpers.get_xml_attr(d, 'clientIdentifier'),
@@ -692,10 +760,15 @@ class PlexTV(object):
                                       'port': helpers.get_xml_attr(c, 'port'),
                                       'uri': helpers.get_xml_attr(c, 'uri'),
                                       'local': helpers.get_xml_attr(c, 'local'),
-                                      'value': helpers.get_xml_attr(c, 'address'),
+                                      'value': helpers.get_xml_attr(c, 'address') + ':' + helpers.get_xml_attr(c, 'port'),
                                       'is_cloud': is_cloud
                                       }
                             clean_servers.append(server)
+
+            if local_machine_identifier:
+                clean_servers.append(local_server)
+
+        clean_servers.sort(key=lambda s: (s['label'], -int(s['local']), s['ip']))
 
         return clean_servers
 
@@ -740,7 +813,7 @@ class PlexTV(object):
 
         # Get proper download
         releases = platform_downloads.get('releases', [{}])
-        release = next((r for r in releases if r['distro'] == plexpy.CONFIG.PMS_UPDATE_DISTRO and 
+        release = next((r for r in releases if r['distro'] == plexpy.CONFIG.PMS_UPDATE_DISTRO and
                         r['build'] == plexpy.CONFIG.PMS_UPDATE_DISTRO_BUILD), releases[0])
 
         download_info = {'update_available': v_new > v_old,
@@ -819,3 +892,28 @@ class PlexTV(object):
                         return True
                     else:
                         return False
+
+    def get_plex_account_details(self):
+        account_data = self.get_plextv_user_details(output_format='xml')
+
+        try:
+            xml_head = account_data.getElementsByTagName('user')
+        except Exception as e:
+            logger.warn(u"Tautulli PlexTV :: Unable to parse XML for get_plex_account_details: %s." % e)
+            return None
+
+        for a in xml_head:
+            account_details = {"user_id": helpers.get_xml_attr(a, 'id'),
+                               "username": helpers.get_xml_attr(a, 'username'),
+                               "thumb": helpers.get_xml_attr(a, 'thumb'),
+                               "email": helpers.get_xml_attr(a, 'email'),
+                               "is_home_user": helpers.get_xml_attr(a, 'home'),
+                               "is_restricted": helpers.get_xml_attr(a, 'restricted'),
+                               "filter_all": helpers.get_xml_attr(a, 'filterAll'),
+                               "filter_movies": helpers.get_xml_attr(a, 'filterMovies'),
+                               "filter_tv": helpers.get_xml_attr(a, 'filterTelevision'),
+                               "filter_music": helpers.get_xml_attr(a, 'filterMusic'),
+                               "filter_photos": helpers.get_xml_attr(a, 'filterPhotos'),
+                               "user_token": helpers.get_xml_attr(a, 'authToken')
+                               }
+            return account_details

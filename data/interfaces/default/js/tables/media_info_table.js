@@ -25,6 +25,7 @@ media_info_table_options = {
     },
     "pagingType": "full_numbers",
     "stateSave": true,
+    "stateDuration": 0,
     "processing": false,
     "serverSide": true,
     "pageLength": 25,
@@ -299,7 +300,7 @@ media_info_table_options = {
             ' (filtered from ' + humanFileSize(settings.json.total_file_size) + ')</span>');
     },
     "preDrawCallback": function (settings) {
-        var msg = "<i class='fa fa-refresh fa-spin'></i>&nbspFetching rows...";
+        var msg = "<i class='fa fa-refresh fa-spin'></i>&nbsp; Fetching rows...";
         showMsg(msg, false, false, 0)
     },
     "rowCallback": function (row, rowData, rowIndex) {

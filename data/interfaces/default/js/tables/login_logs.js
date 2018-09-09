@@ -10,6 +10,7 @@ login_log_table_options = {
         "loadingRecords": '<i class="fa fa-refresh fa-spin"></i> Loading items...</div>'
     },
     "stateSave": true,
+    "stateDuration": 0,
     "pagingType": "full_numbers",
     "processing": false,
     "serverSide": true,
@@ -110,7 +111,7 @@ login_log_table_options = {
 
     },
     "preDrawCallback": function (settings) {
-        var msg = "<i class='fa fa-refresh fa-spin'></i>&nbspFetching rows...";
+        var msg = "<i class='fa fa-refresh fa-spin'></i>&nbsp; Fetching rows...";
         showMsg(msg, false, false, 0)
     }
 };

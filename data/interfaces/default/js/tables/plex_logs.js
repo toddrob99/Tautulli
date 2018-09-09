@@ -6,6 +6,7 @@ var plex_log_table_options = {
     "order": [ 0, 'desc'],
     "pageLength": 50,
     "stateSave": true,
+    "stateDuration": 0,
     "language": {
                 "search": "Search: ",
                 "lengthMenu": "Show _MENU_ lines per page",
@@ -39,7 +40,7 @@ var plex_log_table_options = {
         $('#ajaxMsg').fadeOut();
     },
     "preDrawCallback": function(settings) {
-        var msg = "<i class='fa fa-refresh fa-spin'></i>&nbspFetching rows...";
+        var msg = "<i class='fa fa-refresh fa-spin'></i>&nbsp; Fetching rows...";
         showMsg(msg, false, false, 0)
     }
 }

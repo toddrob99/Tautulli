@@ -32,6 +32,7 @@ import xmltodict
 import plexpy
 import config
 import database
+import helpers
 import libraries
 import logger
 import mobile_app
@@ -121,7 +122,7 @@ class API2:
 
             else:
                 self._api_msg = 'Invalid apikey'
-            
+
             if self._api_authenticated and self._api_cmd in self._api_valid_methods:
                 self._api_msg = None
                 self._api_kwargs = kwargs
@@ -173,47 +174,51 @@ class API2:
         end = int(end)
 
         if regex:
-            logger.api_debug(u'Tautulli APIv2 :: Filtering log using regex %s' % regex)
-            reg = re.compile('u' + regex, flags=re.I)
+            logger.api_debug(u"Tautulli APIv2 :: Filtering log using regex '%s'" % regex)
+            reg = re.compile(regex, flags=re.I)
 
-        for line in open(logfile, 'r').readlines():
-            temp_loglevel_and_time = None
+        with open(logfile, 'r') as f:
+            for line in f.readlines():
+                temp_loglevel_and_time = None
 
-            try:
-                temp_loglevel_and_time = line.split('- ')
-                loglvl = temp_loglevel_and_time[1].split(' :')[0].strip()
-                tl_tread = line.split(' :: ')
-                if loglvl is None:
-                    msg = line.replace('\n', '')
-                else:
-                    msg = line.split(' : ')[1].replace('\n', '')
-                thread = tl_tread[1].split(' : ')[0]
-            except IndexError:
-                # We assume this is a traceback
-                tl = (len(templog) - 1)
-                templog[tl]['msg'] += line.replace('\n', '')
-                continue
+                try:
+                    temp_loglevel_and_time = line.split('- ')
+                    loglvl = temp_loglevel_and_time[1].split(' :')[0].strip()
+                    tl_tread = line.split(' :: ')
+                    if loglvl is None:
+                        msg = line.replace('\n', '')
+                    else:
+                        msg = line.split(' : ')[1].replace('\n', '')
+                    thread = tl_tread[1].split(' : ')[0]
+                except IndexError:
+                    # We assume this is a traceback
+                    tl = (len(templog) - 1)
+                    templog[tl]['msg'] += helpers.sanitize(unicode(line.replace('\n', ''), 'utf-8'))
+                    continue
 
-            if len(line) > 1 and temp_loglevel_and_time is not None and loglvl in line:
+                if len(line) > 1 and temp_loglevel_and_time is not None and loglvl in line:
 
-                d = {
-                    'time': temp_loglevel_and_time[0],
-                    'loglevel': loglvl,
-                    'msg': msg.replace('\n', ''),
-                    'thread': thread
-                }
-                templog.append(d)
+                    d = {
+                        'time': temp_loglevel_and_time[0],
+                        'loglevel': loglvl,
+                        'msg': helpers.sanitize(unicode(msg.replace('\n', ''), 'utf-8')),
+                        'thread': thread
+                    }
+                    templog.append(d)
+
+        if order == 'desc':
+            templog = templog[::-1]
 
         if end > 0 or start > 0:
-                logger.api_debug(u'Tautulli APIv2 :: Slicing the log from %s to %s' % (start, end))
-                templog = templog[start:end]
+            logger.api_debug(u"Tautulli APIv2 :: Slicing the log from %s to %s" % (start, end))
+            templog = templog[start:end]
 
         if sort:
-            logger.api_debug(u'Tautulli APIv2 :: Sorting log based on %s' % sort)
+            logger.api_debug(u"Tautulli APIv2 :: Sorting log based on '%s'" % sort)
             templog = sorted(templog, key=lambda k: k[sort])
 
         if search:
-            logger.api_debug(u'Tautulli APIv2 :: Searching log values for %s' % search)
+            logger.api_debug(u"Tautulli APIv2 :: Searching log values for '%s'" % search)
             tt = [d for d in templog for k, v in d.items() if search.lower() in v.lower()]
 
             if len(tt):
@@ -222,15 +227,12 @@ class API2:
         if regex:
             tt = []
             for l in templog:
-                stringdict = ' '.join('{}{}'.format(k, v) for k, v in l.items())
+                stringdict = ' '.join(u'{}{}'.format(k, v) for k, v in l.items())
                 if reg.search(stringdict):
                     tt.append(l)
 
             if len(tt):
                 templog = tt
-
-        if order == 'desc':
-            templog = templog[::-1]
 
         return templog
 
@@ -309,8 +311,8 @@ class API2:
             self.backup_db()
         else:
             # If the backup is less then 24 h old lets make a backup
-            if any([os.path.getctime(os.path.join(plexpy.CONFIG.BACKUP_DIR, file_)) < (time.time() - 86400)
-                   and file_.endswith('.db') for file_ in os.listdir(plexpy.CONFIG.BACKUP_DIR)]):
+            if not any(os.path.getctime(os.path.join(plexpy.CONFIG.BACKUP_DIR, file_)) > (time.time() - 86400)
+                    and file_.endswith('.db') for file_ in os.listdir(plexpy.CONFIG.BACKUP_DIR)):
                 self.backup_db()
 
         db = database.MonitorDatabase()
@@ -411,7 +413,7 @@ class API2:
                 body (str):             The body of the message
 
             Optional parameters:
-                None
+                script_args (str):      The arguments for script notifications
 
             Returns:
                 None
@@ -494,10 +496,16 @@ class API2:
         """ Tries to make a API.md to simplify the api docs. """
 
         head = '''# API Reference\n
-The API is still pretty new and needs some serious cleaning up on the backend but should be reasonably functional. There are no error codes yet.
-
 ## General structure
-The API endpoint is `http://ip:port + HTTP_ROOT + /api/v2?apikey=$apikey&cmd=$command`
+The API endpoint is
+```
+http://IP_ADDRESS:PORT + [/HTTP_ROOT] + /api/v2?apikey=$apikey&cmd=$command
+```
+
+Example:
+```
+http://localhost:8181/api/v2?apikey=66198313a092496b8a725867d2223b5f&cmd=get_metadata&rating_key=153037
+```
 
 Response example (default `json`)
 ```
@@ -594,8 +602,9 @@ General optional parameters:
             return
 
         elif self._api_cmd == 'pms_image_proxy':
-            cherrypy.response.headers['Content-Type'] = 'image/jpeg'
-            return out['response']['data']
+            if 'return_hash' not in self._api_kwargs:
+                cherrypy.response.headers['Content-Type'] = 'image/jpeg'
+                return out['response']['data']
 
         if self._api_out_type == 'json':
             cherrypy.response.headers['Content-Type'] = 'application/json;charset=UTF-8'

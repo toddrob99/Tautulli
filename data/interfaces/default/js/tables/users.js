@@ -34,6 +34,7 @@ users_list_table_options = {
     "pageLength": 25,
     "order": [ 2, 'asc'],
     "stateSave": true,
+    "stateDuration": 0,
     "pagingType": "full_numbers",
     "autoWidth": false,
     "scrollX": true,
@@ -240,7 +241,7 @@ users_list_table_options = {
         }
     },
     "preDrawCallback": function(settings) {
-        var msg = "<i class='fa fa-refresh fa-spin'></i>&nbspFetching rows...";
+        var msg = "<i class='fa fa-refresh fa-spin'></i>&nbsp; Fetching rows...";
         showMsg(msg, false, false, 0)
     },
     "rowCallback": function (row, rowData) {

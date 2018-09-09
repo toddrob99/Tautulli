@@ -607,6 +607,7 @@ _CONFIG_DEFINITIONS = {
     'UPDATE_NOTIFIERS_DB': (int, 'General', 1),
     'VERIFY_SSL_CERT': (bool_int, 'Advanced', 1),
     'VIDEO_LOGGING_ENABLE': (int, 'Monitoring', 1),
+    'WEBSOCKET_MONITOR_PING_PONG': (int, 'Advanced', 0),
     'WEBSOCKET_CONNECTION_ATTEMPTS': (int, 'Advanced', 5),
     'WEBSOCKET_CONNECTION_TIMEOUT': (int, 'Advanced', 5),
     'WEEK_START_MONDAY': (int, 'General', 0),
@@ -629,7 +630,8 @@ _CONFIG_DEFINITIONS = {
     'XBMC_ON_CONCURRENT': (int, 'XBMC', 0),
     'XBMC_ON_NEWDEVICE': (int, 'XBMC', 0),
     'JWT_SECRET': (str, 'Advanced', ''),
-    'SYSTEM_ANALYTICS': (int, 'Advanced', 1)
+    'SYSTEM_ANALYTICS': (int, 'Advanced', 1),
+    'WIN_SYS_TRAY': (int, 'General', 1)
 }
 
 _BLACKLIST_KEYS = ['_APITOKEN', '_TOKEN', '_KEY', '_SECRET', '_PASSWORD', '_APIKEY', '_ID', '_HOOK']
@@ -802,6 +804,7 @@ class Config(object):
             if self.VIDEO_LOGGING_ENABLE == 0:
                 self.MOVIE_LOGGING_ENABLE = 0
                 self.TV_LOGGING_ENABLE = 0
+
             self.CONFIG_VERSION = 1
 
         if self.CONFIG_VERSION == 1:
@@ -817,11 +820,12 @@ class Config(object):
                 if 'library_statistics' in home_library_cards:
                     home_library_cards.remove('library_statistics')
                     self.HOME_LIBRARY_CARDS = home_library_cards
+
             self.CONFIG_VERSION = 2
 
         if self.CONFIG_VERSION == 2:
             def rep(s):
-                return s.replace('{progress}','{progress_duration}')
+                return s.replace('{progress}', '{progress_duration}')
 
             self.NOTIFY_ON_START_SUBJECT_TEXT = rep(self.NOTIFY_ON_START_SUBJECT_TEXT)
             self.NOTIFY_ON_START_BODY_TEXT = rep(self.NOTIFY_ON_START_BODY_TEXT)
@@ -836,10 +840,13 @@ class Config(object):
             self.NOTIFY_ON_WATCHED_SUBJECT_TEXT = rep(self.NOTIFY_ON_WATCHED_SUBJECT_TEXT)
             self.NOTIFY_ON_WATCHED_BODY_TEXT = rep(self.NOTIFY_ON_WATCHED_BODY_TEXT)
             self.NOTIFY_SCRIPTS_ARGS_TEXT = rep(self.NOTIFY_SCRIPTS_ARGS_TEXT)
+
             self.CONFIG_VERSION = 3
 
         if self.CONFIG_VERSION == 3:
-            if self.HTTP_ROOT == '/': self.HTTP_ROOT = ''
+            if self.HTTP_ROOT == '/':
+                self.HTTP_ROOT = ''
+
             self.CONFIG_VERSION = 4
 
         if self.CONFIG_VERSION == 4:
@@ -851,20 +858,26 @@ class Config(object):
                 home_sections = self.HOME_SECTIONS
                 home_sections.remove('library_stats')
                 self.HOME_SECTIONS = home_sections
+
             self.CONFIG_VERSION = 5
 
         if self.CONFIG_VERSION == 5:
             self.MONITOR_PMS_UPDATES = 0
+
             self.CONFIG_VERSION = 6
 
         if self.CONFIG_VERSION == 6:
             if self.GIT_USER.lower() == 'drzoidberg33':
                 self.GIT_USER = 'JonnyWong16'
+
             self.CONFIG_VERSION = 7
 
         if self.CONFIG_VERSION == 7:
             def rep(s):
-                return s.replace('<tv>','<episode>').replace('</tv>','</episode>').replace('<music>','<track>').replace('</music>','</track>')
+                return s.replace('<tv>', '<episode>') \
+                    .replace('</tv>', '</episode>') \
+                    .replace('<music>', '<track>') \
+                    .replace('</music>', '</track>')
 
             self.NOTIFY_ON_START_SUBJECT_TEXT = rep(self.NOTIFY_ON_START_SUBJECT_TEXT)
             self.NOTIFY_ON_START_BODY_TEXT = rep(self.NOTIFY_ON_START_BODY_TEXT)
@@ -904,3 +917,7 @@ class Config(object):
             self.GIT_REPO = 'Tautulli'
 
             self.CONFIG_VERSION = 11
+
+        if self.CONFIG_VERSION == 11:
+            self.ANON_REDIRECT = self.ANON_REDIRECT.replace('http://www.nullrefer.com/?',
+                                                            'https://www.nullrefer.com/?')

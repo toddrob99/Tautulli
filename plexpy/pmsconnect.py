@@ -527,7 +527,9 @@ class PmsConnect(object):
                                'summary': helpers.get_xml_attr(m, 'summary'),
                                'tagline': helpers.get_xml_attr(m, 'tagline'),
                                'rating': helpers.get_xml_attr(m, 'rating'),
+                               'rating_image': helpers.get_xml_attr(m, 'ratingImage'),
                                'audience_rating': helpers.get_xml_attr(m, 'audienceRating'),
+                               'audience_rating_image': helpers.get_xml_attr(m, 'audienceRatingImage'),
                                'user_rating': helpers.get_xml_attr(m, 'userRating'),
                                'duration': helpers.get_xml_attr(m, 'duration'),
                                'year': helpers.get_xml_attr(m, 'year'),
@@ -680,7 +682,9 @@ class PmsConnect(object):
                         'summary': helpers.get_xml_attr(metadata_main, 'summary'),
                         'tagline': helpers.get_xml_attr(metadata_main, 'tagline'),
                         'rating': helpers.get_xml_attr(metadata_main, 'rating'),
+                        'rating_image': helpers.get_xml_attr(metadata_main, 'ratingImage'),
                         'audience_rating': helpers.get_xml_attr(metadata_main, 'audienceRating'),
+                        'audience_rating_image': helpers.get_xml_attr(metadata_main, 'audienceRatingImage'),
                         'user_rating': helpers.get_xml_attr(metadata_main, 'userRating'),
                         'duration': helpers.get_xml_attr(metadata_main, 'duration'),
                         'year': helpers.get_xml_attr(metadata_main, 'year'),
@@ -728,7 +732,9 @@ class PmsConnect(object):
                         'summary': helpers.get_xml_attr(metadata_main, 'summary'),
                         'tagline': helpers.get_xml_attr(metadata_main, 'tagline'),
                         'rating': helpers.get_xml_attr(metadata_main, 'rating'),
+                        'rating_image': helpers.get_xml_attr(metadata_main, 'ratingImage'),
                         'audience_rating': helpers.get_xml_attr(metadata_main, 'audienceRating'),
+                        'audience_rating_image': helpers.get_xml_attr(metadata_main, 'audienceRatingImage'),
                         'user_rating': helpers.get_xml_attr(metadata_main, 'userRating'),
                         'duration': duration,
                         'year': helpers.get_xml_attr(metadata_main, 'year'),
@@ -773,7 +779,9 @@ class PmsConnect(object):
                         'summary': show_details['summary'],
                         'tagline': helpers.get_xml_attr(metadata_main, 'tagline'),
                         'rating': helpers.get_xml_attr(metadata_main, 'rating'),
+                        'rating_image': helpers.get_xml_attr(metadata_main, 'ratingImage'),
                         'audience_rating': helpers.get_xml_attr(metadata_main, 'audienceRating'),
+                        'audience_rating_image': helpers.get_xml_attr(metadata_main, 'audienceRatingImage'),
                         'user_rating': helpers.get_xml_attr(metadata_main, 'userRating'),
                         'duration': show_details['duration'],
                         'year': helpers.get_xml_attr(metadata_main, 'year'),
@@ -801,11 +809,27 @@ class PmsConnect(object):
         elif metadata_type == 'episode':
             grandparent_rating_key = helpers.get_xml_attr(metadata_main, 'grandparentRatingKey')
             show_details = self.get_metadata_details(grandparent_rating_key)
+
+            parent_rating_key = helpers.get_xml_attr(metadata_main, 'parentRatingKey')
+            parent_media_index = helpers.get_xml_attr(metadata_main, 'parentIndex')
+            parent_thumb = helpers.get_xml_attr(metadata_main, 'parentThumb')
+
+            if not parent_rating_key:
+                # Try getting the parent_rating_key from the parent_thumb
+                if parent_thumb.startswith('/library/metadata/'):
+                    parent_rating_key = parent_thumb.split('/')[3]
+
+                # Try getting the parent_rating_key from the grandparent's children
+                if not parent_rating_key:
+                    children_list = self.get_item_children(grandparent_rating_key)
+                    parent_rating_key = next((c['rating_key'] for c in children_list['children_list']
+                                              if c['media_index'] == parent_media_index), '')
+
             metadata = {'media_type': metadata_type,
                         'section_id': section_id,
                         'library_name': library_name,
                         'rating_key': helpers.get_xml_attr(metadata_main, 'ratingKey'),
-                        'parent_rating_key': helpers.get_xml_attr(metadata_main, 'parentRatingKey'),
+                        'parent_rating_key': parent_rating_key,
                         'grandparent_rating_key': helpers.get_xml_attr(metadata_main, 'grandparentRatingKey'),
                         'title': helpers.get_xml_attr(metadata_main, 'title'),
                         'parent_title': 'Season %s' % helpers.get_xml_attr(metadata_main, 'parentIndex'),
@@ -813,18 +837,20 @@ class PmsConnect(object):
                         'original_title': helpers.get_xml_attr(metadata_main, 'originalTitle'),
                         'sort_title': helpers.get_xml_attr(metadata_main, 'titleSort'),
                         'media_index': helpers.get_xml_attr(metadata_main, 'index'),
-                        'parent_media_index': helpers.get_xml_attr(metadata_main, 'parentIndex'),
+                        'parent_media_index': parent_media_index,
                         'studio': show_details['studio'],
                         'content_rating': helpers.get_xml_attr(metadata_main, 'contentRating'),
                         'summary': helpers.get_xml_attr(metadata_main, 'summary'),
                         'tagline': helpers.get_xml_attr(metadata_main, 'tagline'),
                         'rating': helpers.get_xml_attr(metadata_main, 'rating'),
+                        'rating_image': helpers.get_xml_attr(metadata_main, 'ratingImage'),
                         'audience_rating': helpers.get_xml_attr(metadata_main, 'audienceRating'),
+                        'audience_rating_image': helpers.get_xml_attr(metadata_main, 'audienceRatingImage'),
                         'user_rating': helpers.get_xml_attr(metadata_main, 'userRating'),
                         'duration': helpers.get_xml_attr(metadata_main, 'duration'),
                         'year': helpers.get_xml_attr(metadata_main, 'year'),
                         'thumb': helpers.get_xml_attr(metadata_main, 'thumb'),
-                        'parent_thumb': helpers.get_xml_attr(metadata_main, 'parentThumb'),
+                        'parent_thumb': parent_thumb,
                         'grandparent_thumb': helpers.get_xml_attr(metadata_main, 'grandparentThumb'),
                         'art': helpers.get_xml_attr(metadata_main, 'art'),
                         'banner': show_details['banner'],
@@ -863,7 +889,9 @@ class PmsConnect(object):
                         'summary': helpers.get_xml_attr(metadata_main, 'summary'),
                         'tagline': helpers.get_xml_attr(metadata_main, 'tagline'),
                         'rating': helpers.get_xml_attr(metadata_main, 'rating'),
+                        'rating_image': helpers.get_xml_attr(metadata_main, 'ratingImage'),
                         'audience_rating': helpers.get_xml_attr(metadata_main, 'audienceRating'),
+                        'audience_rating_image': helpers.get_xml_attr(metadata_main, 'audienceRatingImage'),
                         'user_rating': helpers.get_xml_attr(metadata_main, 'userRating'),
                         'duration': helpers.get_xml_attr(metadata_main, 'duration'),
                         'year': helpers.get_xml_attr(metadata_main, 'year'),
@@ -908,7 +936,9 @@ class PmsConnect(object):
                         'summary': helpers.get_xml_attr(metadata_main, 'summary') or artist_details['summary'],
                         'tagline': helpers.get_xml_attr(metadata_main, 'tagline'),
                         'rating': helpers.get_xml_attr(metadata_main, 'rating'),
+                        'rating_image': helpers.get_xml_attr(metadata_main, 'ratingImage'),
                         'audience_rating': helpers.get_xml_attr(metadata_main, 'audienceRating'),
+                        'audience_rating_image': helpers.get_xml_attr(metadata_main, 'audienceRatingImage'),
                         'user_rating': helpers.get_xml_attr(metadata_main, 'userRating'),
                         'duration': helpers.get_xml_attr(metadata_main, 'duration'),
                         'year': helpers.get_xml_attr(metadata_main, 'year'),
@@ -956,7 +986,9 @@ class PmsConnect(object):
                         'summary': helpers.get_xml_attr(metadata_main, 'summary'),
                         'tagline': helpers.get_xml_attr(metadata_main, 'tagline'),
                         'rating': helpers.get_xml_attr(metadata_main, 'rating'),
+                        'rating_image': helpers.get_xml_attr(metadata_main, 'ratingImage'),
                         'audience_rating': helpers.get_xml_attr(metadata_main, 'audienceRating'),
+                        'audience_rating_image': helpers.get_xml_attr(metadata_main, 'audienceRatingImage'),
                         'user_rating': helpers.get_xml_attr(metadata_main, 'userRating'),
                         'duration': helpers.get_xml_attr(metadata_main, 'duration'),
                         'year': album_details['year'],
@@ -1000,7 +1032,9 @@ class PmsConnect(object):
                         'summary': helpers.get_xml_attr(metadata_main, 'summary'),
                         'tagline': helpers.get_xml_attr(metadata_main, 'tagline'),
                         'rating': helpers.get_xml_attr(metadata_main, 'rating'),
+                        'rating_image': helpers.get_xml_attr(metadata_main, 'ratingImage'),
                         'audience_rating': helpers.get_xml_attr(metadata_main, 'audienceRating'),
+                        'audience_rating_image': helpers.get_xml_attr(metadata_main, 'audienceRatingImage'),
                         'user_rating': helpers.get_xml_attr(metadata_main, 'userRating'),
                         'duration': helpers.get_xml_attr(metadata_main, 'duration'),
                         'year': helpers.get_xml_attr(metadata_main, 'year'),
@@ -1045,7 +1079,9 @@ class PmsConnect(object):
                         'summary': helpers.get_xml_attr(metadata_main, 'summary'),
                         'tagline': helpers.get_xml_attr(metadata_main, 'tagline'),
                         'rating': helpers.get_xml_attr(metadata_main, 'rating'),
+                        'rating_image': helpers.get_xml_attr(metadata_main, 'ratingImage'),
                         'audience_rating': helpers.get_xml_attr(metadata_main, 'audienceRating'),
+                        'audience_rating_image': helpers.get_xml_attr(metadata_main, 'audienceRatingImage'),
                         'user_rating': helpers.get_xml_attr(metadata_main, 'userRating'),
                         'duration': helpers.get_xml_attr(metadata_main, 'duration'),
                         'year': helpers.get_xml_attr(metadata_main, 'year'),
@@ -1090,7 +1126,9 @@ class PmsConnect(object):
                         'summary': helpers.get_xml_attr(metadata_main, 'summary'),
                         'tagline': helpers.get_xml_attr(metadata_main, 'tagline'),
                         'rating': helpers.get_xml_attr(metadata_main, 'rating'),
+                        'rating_image': helpers.get_xml_attr(metadata_main, 'ratingImage'),
                         'audience_rating': helpers.get_xml_attr(metadata_main, 'audienceRating'),
+                        'audience_rating_image': helpers.get_xml_attr(metadata_main, 'audienceRatingImage'),
                         'user_rating': helpers.get_xml_attr(metadata_main, 'userRating'),
                         'duration': helpers.get_xml_attr(metadata_main, 'duration'),
                         'year': helpers.get_xml_attr(metadata_main, 'year'),
@@ -1136,7 +1174,9 @@ class PmsConnect(object):
                         'summary': helpers.get_xml_attr(metadata_main, 'summary'),
                         'tagline': helpers.get_xml_attr(metadata_main, 'tagline'),
                         'rating': helpers.get_xml_attr(metadata_main, 'rating'),
+                        'rating_image': helpers.get_xml_attr(metadata_main, 'ratingImage'),
                         'audience_rating': helpers.get_xml_attr(metadata_main, 'audienceRating'),
+                        'audience_rating_image': helpers.get_xml_attr(metadata_main, 'audienceRatingImage'),
                         'user_rating': helpers.get_xml_attr(metadata_main, 'userRating'),
                         'duration': helpers.get_xml_attr(metadata_main, 'duration'),
                         'year': helpers.get_xml_attr(metadata_main, 'year'),
@@ -1189,7 +1229,8 @@ class PmsConnect(object):
                                             'video_width': helpers.get_xml_attr(stream, 'width'),
                                             'video_language': helpers.get_xml_attr(stream, 'language'),
                                             'video_language_code': helpers.get_xml_attr(stream, 'languageCode'),
-                                            'video_profile': helpers.get_xml_attr(stream, 'profile')
+                                            'video_profile': helpers.get_xml_attr(stream, 'profile'),
+                                            'selected': int(helpers.get_xml_attr(stream, 'selected') == '1')
                                             })
 
                         elif helpers.get_xml_attr(stream, 'streamType') == '2':
@@ -1203,7 +1244,8 @@ class PmsConnect(object):
                                             'audio_sample_rate': helpers.get_xml_attr(stream, 'samplingRate'),
                                             'audio_language': helpers.get_xml_attr(stream, 'language'),
                                             'audio_language_code': helpers.get_xml_attr(stream, 'languageCode'),
-                                            'audio_profile': helpers.get_xml_attr(stream, 'profile')
+                                            'audio_profile': helpers.get_xml_attr(stream, 'profile'),
+                                            'selected': int(helpers.get_xml_attr(stream, 'selected') == '1')
                                             })
 
                         elif helpers.get_xml_attr(stream, 'streamType') == '3':
@@ -1215,14 +1257,16 @@ class PmsConnect(object):
                                             'subtitle_forced': int(helpers.get_xml_attr(stream, 'forced') == '1'),
                                             'subtitle_location': 'external' if helpers.get_xml_attr(stream, 'key') else 'embedded',
                                             'subtitle_language': helpers.get_xml_attr(stream, 'language'),
-                                            'subtitle_language_code': helpers.get_xml_attr(stream, 'languageCode')
+                                            'subtitle_language_code': helpers.get_xml_attr(stream, 'languageCode'),
+                                            'selected': int(helpers.get_xml_attr(stream, 'selected') == '1')
                                             })
 
                     parts.append({'id': helpers.get_xml_attr(part, 'id'),
                                   'file': helpers.get_xml_attr(part, 'file'),
                                   'file_size': helpers.get_xml_attr(part, 'size'),
                                   'indexes': int(helpers.get_xml_attr(part, 'indexes') == 'sd'),
-                                  'streams': streams
+                                  'streams': streams,
+                                  'selected': int(helpers.get_xml_attr(part, 'selected') == '1')
                                   })
 
                 audio_channels = helpers.get_xml_attr(media, 'audioChannels')
@@ -1714,7 +1758,9 @@ class PmsConnect(object):
                                 'summary': helpers.get_xml_attr(session, 'summary'),
                                 'tagline': helpers.get_xml_attr(session, 'tagline'),
                                 'rating': helpers.get_xml_attr(session, 'rating'),
+                                'rating_image': helpers.get_xml_attr(session, 'ratingImage'),
                                 'audience_rating': helpers.get_xml_attr(session, 'audienceRating'),
+                                'audience_rating_image': helpers.get_xml_attr(session, 'audienceRatingImage'),
                                 'user_rating': helpers.get_xml_attr(session, 'userRating'),
                                 'duration': helpers.get_xml_attr(session, 'duration'),
                                 'year': helpers.get_xml_attr(session, 'year'),
@@ -1934,7 +1980,7 @@ class PmsConnect(object):
 
         Output: bool
         """
-        message = message or 'The server owner has ended the stream.'
+        message = message.encode('utf-8') or 'The server owner has ended the stream.'
 
         if session_key and not session_id:
             ap = activity_processor.ActivityProcessor()
@@ -2037,7 +2083,9 @@ class PmsConnect(object):
                                        'summary': helpers.get_xml_attr(m, 'summary'),
                                        'tagline': helpers.get_xml_attr(m, 'tagline'),
                                        'rating': helpers.get_xml_attr(m, 'rating'),
+                                       'rating_image': helpers.get_xml_attr(m, 'ratingImage'),
                                        'audience_rating': helpers.get_xml_attr(m, 'audienceRating'),
+                                       'audience_rating_image': helpers.get_xml_attr(m, 'audienceRatingImage'),
                                        'user_rating': helpers.get_xml_attr(m, 'userRating'),
                                        'duration': helpers.get_xml_attr(m, 'duration'),
                                        'year': helpers.get_xml_attr(m, 'year'),
