@@ -33,6 +33,7 @@ import maxminddb
 from operator import itemgetter
 import os
 import re
+import shlex
 import socket
 import sys
 import time
@@ -202,12 +203,20 @@ def convert_seconds_to_minutes(s):
 def today():
     today = datetime.date.today()
     yyyymmdd = datetime.date.isoformat(today)
+
     return yyyymmdd
 
 
 def now():
     now = datetime.datetime.now()
+
     return now.strftime("%Y-%m-%d %H:%M:%S")
+
+
+def utc_now_iso():
+    utcnow = datetime.datetime.utcnow()
+
+    return utcnow.isoformat()
 
 
 def human_duration(s, sig='dhms'):
@@ -463,7 +472,7 @@ def get_percent(value1, value2):
     else:
         percent = 0
 
-    return math.trunc(percent)
+    return math.trunc(round(percent, 0))
 
 
 def hex_to_int(hex):
@@ -837,7 +846,8 @@ def cloudinary_transform(rating_key=None, width=1000, height=1500, opacity=100, 
     img_options = {'format': img_format,
                    'fetch_format': 'auto',
                    'quality': 'auto',
-                   'version': int(time.time())}
+                   'version': int(time.time()),
+                   'secure': True}
 
     if width != 1000:
         img_options['width'] = str(width)
@@ -949,7 +959,7 @@ def parse_condition_logic_string(s, num_cond=0):
     """
     valid_tokens = re.compile(r'(\(|\)|and|or)')
     conditions_pattern = re.compile(r'{\d+}')
-    
+
     tokens = [x.strip() for x in re.split(valid_tokens, s.lower()) if x.strip()]
 
     stack = [[]]
@@ -960,7 +970,7 @@ def parse_condition_logic_string(s, num_cond=0):
     close_bracket_next = False
     nest_and = 0
     nest_nest_and = 0
-    
+
     for i, x in enumerate(tokens):
         if open_bracket_next and x == '(':
             stack[-1].append([])
@@ -971,7 +981,7 @@ def parse_condition_logic_string(s, num_cond=0):
             close_bracket_next = False
             if nest_and:
                 nest_nest_and += 1
-            
+
         elif close_bracket_next and x == ')':
             stack.pop()
             if not stack:
@@ -1000,7 +1010,7 @@ def parse_condition_logic_string(s, num_cond=0):
             if nest_and > nest_nest_and:
                 stack.pop()
                 nest_and -= 1
-            
+
         elif bool_next and x == 'and' and i < len(tokens)-1:
             stack[-1].append([])
             stack.append(stack[-1][-1])
@@ -1011,7 +1021,7 @@ def parse_condition_logic_string(s, num_cond=0):
             open_bracket_next = True
             close_bracket_next = False
             nest_and += 1
-            
+
         elif bool_next and x == 'or' and i < len(tokens)-1:
             stack[-1].append(x)
             cond_next = True
@@ -1079,6 +1089,8 @@ def get_plexpy_url(hostname=None):
 
         if not hostname:
             hostname = 'localhost'
+    elif hostname == 'localhost' and plexpy.CONFIG.HTTP_HOST != '0.0.0.0':
+        hostname = plexpy.CONFIG.HTTP_HOST
     else:
         hostname = hostname or plexpy.CONFIG.HTTP_HOST
 
@@ -1109,3 +1121,29 @@ def grouper(iterable, n, fillvalue=None):
     # grouper('ABCDEFG', 3, 'x') --> ABC DEF Gxx
     args = [iter(iterable)] * n
     return izip_longest(fillvalue=fillvalue, *args)
+
+
+def traverse_map(obj, func):
+    if isinstance(obj, list):
+        new_obj = []
+        for i in obj:
+            new_obj.append(traverse_map(i, func))
+
+    elif isinstance(obj, dict):
+        new_obj = {}
+        for k, v in obj.iteritems():
+            new_obj[traverse_map(k, func)] = traverse_map(v, func)
+
+    else:
+        new_obj = func(obj)
+
+    return new_obj
+
+
+def split_args(args=None):
+    if isinstance(args, list):
+        return args
+    elif isinstance(args, basestring):
+        return [arg.decode(plexpy.SYS_ENCODING, 'ignore')
+                for arg in shlex.split(args.encode(plexpy.SYS_ENCODING, 'ignore'))]
+    return []

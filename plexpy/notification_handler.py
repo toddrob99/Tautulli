@@ -169,7 +169,7 @@ def notify_conditions(notify_action=None, stream_data=None, timeline_data=None):
             user_devices = data_factory.get_user_devices(user_id=stream_data['user_id'])
             return stream_data['machine_id'] not in user_devices
 
-        elif stream_data['media_type'] == 'movie' or stream_data['media_type'] == 'episode':
+        elif stream_data['media_type'] in ('movie', 'episode', 'clip'):
             progress_percent = helpers.get_percent(stream_data['view_offset'], stream_data['duration'])
             
             if notify_action == 'on_stop':
@@ -326,7 +326,7 @@ def notify_custom_conditions(notifier_id=None, parameters=None):
 
 
 def notify(notifier_id=None, notify_action=None, stream_data=None, timeline_data=None, parameters=None, **kwargs):
-    logger.info(u"Tautulli NotificationHandler :: Preparing notifications for notifier_id %s." % notifier_id)
+    logger.info(u"Tautulli NotificationHandler :: Preparing notification for notifier_id %s." % notifier_id)
 
     notifier_config = notifiers.get_notifier_config(notifier_id=notifier_id)
 
@@ -336,7 +336,8 @@ def notify(notifier_id=None, notify_action=None, stream_data=None, timeline_data
     if notify_action in ('test', 'api'):
         subject = kwargs.pop('subject', 'Tautulli')
         body = kwargs.pop('body', 'Test Notification')
-        script_args = kwargs.pop('script_args', [])
+        script_args = helpers.split_args(kwargs.pop('script_args', []))
+
     else:
         # Get the subject and body strings
         subject_string = notifier_config['notify_text'][notify_action]['subject']
@@ -479,20 +480,24 @@ def build_media_notify_params(notify_action=None, session=None, timeline=None, m
     if 'media_info' in notify_params and len(notify_params['media_info']) > 0:
         media_info = notify_params['media_info'][0]
         if 'parts' in media_info and len(media_info['parts']) > 0:
-            media_part_info = media_info.pop('parts')[0]
+            parts = media_info.pop('parts')
+            media_part_info = next((p for p in parts if p['selected']), parts[0])
 
-    stream_video = stream_audio = stream_subtitle = False
     if 'streams' in media_part_info:
-        for stream in media_part_info.pop('streams'):
-            if not stream_video and stream['type'] == '1':
-                media_part_info.update(stream)
-                stream_video = True
-            if not stream_audio and stream['type'] == '2':
-                media_part_info.update(stream)
-                stream_audio = True
-            if not stream_subtitle and stream['type'] == '3':
-                media_part_info.update(stream)
-                stream_subtitle = True
+        streams = media_part_info.pop('streams')
+        video_streams = [s for s in streams if s['type'] == '1']
+        audio_streams = [s for s in streams if s['type'] == '2']
+        subtitle_streams = [s for s in streams if s['type'] == '3']
+
+        if video_streams:
+            video_stream = next((s for s in video_streams if s['selected']), video_streams[0])
+            media_part_info.update(video_stream)
+        if audio_streams:
+            audio_stream = next((s for s in audio_streams if s['selected']), audio_streams[0])
+            media_part_info.update(audio_stream)
+        if subtitle_streams:
+            subtitle_stream = next((s for s in subtitle_streams if s['selected']), subtitle_streams[0])
+            media_part_info.update(subtitle_stream)
 
     notify_params.update(media_info)
     notify_params.update(media_part_info)
@@ -519,8 +524,8 @@ def build_media_notify_params(notify_action=None, session=None, timeline=None, m
         transcode_decision = 'Direct Stream'
     else:
         transcode_decision = 'Direct Play'
-    
-    if notify_action != 'play':
+
+    if notify_action != 'on_play':
         stream_duration = int((time.time() -
                                helpers.cast_to_int(session.get('started', 0)) -
                                helpers.cast_to_int(session.get('paused_counter', 0))) / 60)
@@ -633,6 +638,8 @@ def build_media_notify_params(notify_action=None, session=None, timeline=None, m
                                     notify_params['parent_title'])
     else:
         poster_thumb = ''
+        poster_key = ''
+        poster_title = ''
 
     img_service = helpers.get_img_service(include_self=True)
     if img_service not in (None, 'self-hosted'):
@@ -699,6 +706,17 @@ def build_media_notify_params(notify_action=None, session=None, timeline=None, m
         child_count = 1
         grandchild_count = 1
 
+    critic_rating = ''
+    if notify_params['rating_image'].startswith('rottentomatoes://') and notify_params['rating']:
+        critic_rating = helpers.get_percent(notify_params['rating'], 10)
+
+    audience_rating = ''
+    if notify_params['audience_rating']:
+        audience_rating = helpers.get_percent(notify_params['audience_rating'], 10)
+
+    now = arrow.now()
+    now_iso = now.isocalendar()
+
     available_params = {
         # Global paramaters
         'tautulli_version': common.RELEASE,
@@ -713,10 +731,19 @@ def build_media_notify_params(notify_action=None, session=None, timeline=None, m
         'server_platform': plexpy.CONFIG.PMS_PLATFORM,
         'server_version': plexpy.CONFIG.PMS_VERSION,
         'action': notify_action.split('on_')[-1],
-        'week_number': arrow.now().isocalendar()[1],
-        'datestamp': arrow.now().format(date_format),
-        'timestamp': arrow.now().format(time_format),
+        'current_year': now.year,
+        'current_month': now.month,
+        'current_day': now.day,
+        'current_hour': now.hour,
+        'current_minute': now.minute,
+        'current_second': now.second,
+        'current_weekday': now_iso[2],
+        'current_week': now_iso[1],
+        'week_number': now_iso[1],  # Keep for backwards compatibility
+        'datestamp': now.format(date_format),
+        'timestamp': now.format(time_format),
         'unixtime': int(time.time()),
+        'utctime': helpers.utc_now_iso(),
         # Stream parameters
         'streams': stream_count,
         'user_streams': user_stream_count,
@@ -742,6 +769,7 @@ def build_media_notify_params(notify_action=None, session=None, timeline=None, m
         'optimized_version': notify_params['optimized_version'],
         'optimized_version_profile': notify_params['optimized_version_profile'],
         'synced_version': notify_params['synced_version'],
+        'live': notify_params['live'],
         'stream_local': notify_params['local'],
         'stream_location': notify_params['location'],
         'stream_bandwidth': notify_params['bandwidth'],
@@ -802,6 +830,7 @@ def build_media_notify_params(notify_action=None, session=None, timeline=None, m
         'artist_name': artist_name,
         'album_name': album_name,
         'track_name': track_name,
+        'track_artist': notify_params['original_title'] or notify_params['grandparent_title'],
         'season_num': season_num,
         'season_num00': season_num00,
         'episode_num': episode_num,
@@ -834,7 +863,8 @@ def build_media_notify_params(notify_action=None, session=None, timeline=None, m
         'summary': notify_params['summary'],
         'tagline': notify_params['tagline'],
         'rating': notify_params['rating'],
-        'audience_rating': helpers.get_percent(notify_params['audience_rating'], 10) or '',
+        'critic_rating':  critic_rating,
+        'audience_rating': audience_rating,
         'duration': duration,
         'poster_title': notify_params['poster_title'],
         'poster_url': notify_params['poster_url'],
@@ -879,6 +909,7 @@ def build_media_notify_params(notify_action=None, session=None, timeline=None, m
         'subtitle_language': notify_params['subtitle_language'],
         'subtitle_language_code': notify_params['subtitle_language_code'],
         'file': notify_params['file'],
+        'filename': os.path.basename(notify_params['file']),
         'file_size': helpers.humanFileSize(notify_params['file_size']),
         'indexes': notify_params['indexes'],
         'section_id': notify_params['section_id'],
@@ -904,6 +935,9 @@ def build_server_notify_params(notify_action=None, **kwargs):
     pms_download_info = defaultdict(str, kwargs.pop('pms_download_info', {}))
     plexpy_download_info = defaultdict(str, kwargs.pop('plexpy_download_info', {}))
 
+    now = arrow.now()
+    now_iso = now.isocalendar()
+
     available_params = {
         # Global paramaters
         'tautulli_version': common.RELEASE,
@@ -918,9 +952,19 @@ def build_server_notify_params(notify_action=None, **kwargs):
         'server_version': plexpy.CONFIG.PMS_VERSION,
         'server_machine_id': plexpy.CONFIG.PMS_IDENTIFIER,
         'action': notify_action.split('on_')[-1],
-        'datestamp': arrow.now().format(date_format),
-        'timestamp': arrow.now().format(time_format),
+        'current_year': now.year,
+        'current_month': now.month,
+        'current_day': now.day,
+        'current_hour': now.hour,
+        'current_minute': now.minute,
+        'current_second': now.second,
+        'current_weekday': now_iso[2],
+        'current_week': now_iso[1],
+        'week_number': now_iso[1],  # Keep for backwards compatibility
+        'datestamp': now.format(date_format),
+        'timestamp': now.format(time_format),
         'unixtime': int(time.time()),
+        'utctime': helpers.utc_now_iso(),
         # Plex Media Server update parameters
         'update_version': pms_download_info['version'],
         'update_url': pms_download_info['download_url'],
@@ -991,6 +1035,7 @@ def build_notify_text(subject='', body='', notify_action=None, parameters=None, 
     # Remove the unwanted tags and strip any unmatch tags too.
     subject = strip_tag(re.sub(pattern, '', subject), agent_id).strip(' \t\n\r')
     body = strip_tag(re.sub(pattern, '', body), agent_id).strip(' \t\n\r')
+    script_args = []
 
     if test:
         return subject, body
@@ -999,33 +1044,55 @@ def build_notify_text(subject='', body='', notify_action=None, parameters=None, 
 
     if agent_id == 15:
         try:
-            script_args = [custom_formatter.format(unicode(arg), **parameters) for arg in subject.split()]
+            script_args = [custom_formatter.format(arg, **parameters) for arg in helpers.split_args(subject)]
         except LookupError as e:
             logger.error(u"Tautulli NotificationHandler :: Unable to parse parameter %s in script argument. Using fallback." % e)
             script_args = []
         except Exception as e:
             logger.error(u"Tautulli NotificationHandler :: Unable to parse custom script arguments: %s. Using fallback." % e)
             script_args = []
+
+    elif agent_id == 25:
+        if body:
+            try:
+                body = json.loads(body)
+            except ValueError as e:
+                logger.error(u"Tautulli NotificationHandler :: Unable to parse custom webhook json data: %s. Using fallback." % e)
+                body = ''
+
+        if body:
+            def str_format(s):
+                if isinstance(s, basestring):
+                    return custom_formatter.format(unicode(s), **parameters)
+                return s
+
+            try:
+                body = json.dumps(helpers.traverse_map(body, str_format))
+            except LookupError as e:
+                logger.error(u"Tautulli NotificationHandler :: Unable to parse parameter %s in webhook data. Using fallback." % e)
+                body = ''
+            except Exception as e:
+                logger.error(u"Tautulli NotificationHandler :: Unable to parse custom webhook data: %s. Using fallback." % e)
+                body = ''
+
     else:
-        script_args = []
+        try:
+            subject = custom_formatter.format(unicode(subject), **parameters)
+        except LookupError as e:
+            logger.error(u"Tautulli NotificationHandler :: Unable to parse parameter %s in notification subject. Using fallback." % e)
+            subject = unicode(default_subject).format(**parameters)
+        except Exception as e:
+            logger.error(u"Tautulli NotificationHandler :: Unable to parse custom notification subject: %s. Using fallback." % e)
+            subject = unicode(default_subject).format(**parameters)
 
-    try:
-        subject = custom_formatter.format(unicode(subject), **parameters)
-    except LookupError as e:
-        logger.error(u"Tautulli NotificationHandler :: Unable to parse parameter %s in notification subject. Using fallback." % e)
-        subject = unicode(default_subject).format(**parameters)
-    except Exception as e:
-        logger.error(u"Tautulli NotificationHandler :: Unable to parse custom notification subject: %s. Using fallback." % e)
-        subject = unicode(default_subject).format(**parameters)
-
-    try:
-        body = custom_formatter.format(unicode(body), **parameters)
-    except LookupError as e:
-        logger.error(u"Tautulli NotificationHandler :: Unable to parse parameter %s in notification body. Using fallback." % e)
-        body = unicode(default_body).format(**parameters)
-    except Exception as e:
-        logger.error(u"Tautulli NotificationHandler :: Unable to parse custom notification body: %s. Using fallback." % e)
-        body = unicode(default_body).format(**parameters)
+        try:
+            body = custom_formatter.format(unicode(body), **parameters)
+        except LookupError as e:
+            logger.error(u"Tautulli NotificationHandler :: Unable to parse parameter %s in notification body. Using fallback." % e)
+            body = unicode(default_body).format(**parameters)
+        except Exception as e:
+            logger.error(u"Tautulli NotificationHandler :: Unable to parse custom notification body: %s. Using fallback." % e)
+            body = unicode(default_body).format(**parameters)
 
     return subject, body, script_args
 
@@ -1182,7 +1249,8 @@ def get_img_info(img=None, rating_key=None, title='', width=1000, height=1500,
 
 
 def set_hash_image_info(img=None, rating_key=None, width=750, height=1000,
-                        opacity=100, background='000000', blur=0, fallback=None):
+                        opacity=100, background='000000', blur=0, fallback=None,
+                        add_to_db=True):
     if not rating_key and not img:
         return fallback
 
@@ -1200,18 +1268,19 @@ def set_hash_image_info(img=None, rating_key=None, width=750, height=1000,
         plexpy.CONFIG.PMS_UUID, img, rating_key, width, height, opacity, background, blur, fallback)
     img_hash = hashlib.sha256(img_string).hexdigest()
 
-    keys = {'img_hash': img_hash}
-    values = {'img': img,
-              'rating_key': rating_key,
-              'width': width,
-              'height': height,
-              'opacity': opacity,
-              'background': background,
-              'blur': blur,
-              'fallback': fallback}
+    if add_to_db:
+        keys = {'img_hash': img_hash}
+        values = {'img': img,
+                  'rating_key': rating_key,
+                  'width': width,
+                  'height': height,
+                  'opacity': opacity,
+                  'background': background,
+                  'blur': blur,
+                  'fallback': fallback}
 
-    db = database.MonitorDatabase()
-    db.upsert('image_hash_lookup', key_dict=keys, value_dict=values)
+        db = database.MonitorDatabase()
+        db.upsert('image_hash_lookup', key_dict=keys, value_dict=values)
 
     return img_hash
 
@@ -1386,6 +1455,10 @@ def get_themoviedb_info(rating_key=None, media_type=None, themoviedb_id=None):
 
 
 class CustomFormatter(Formatter):
+    def __init__(self, default='{{{0}}}', default_format_spec='{{{0}:{1}}}'):
+        self.default = default
+        self.default_format_spec = default_format_spec
+
     def convert_field(self, value, conversion):
         if conversion is None:
             return value
@@ -1414,4 +1487,13 @@ class CustomFormatter(Formatter):
             else:
                 return value
         else:
-            return super(CustomFormatter, self).format_field(value, format_spec)
+            try:
+                return super(CustomFormatter, self).format_field(value, format_spec)
+            except ValueError:
+                return self.default_format_spec.format(value[1:-1], format_spec)
+
+    def get_value(self, key, args, kwargs):
+        if isinstance(key, basestring):
+            return kwargs.get(key, self.default.format(key))
+        else:
+            return super(CustomFormatter, self).get_value(key, args, kwargs)

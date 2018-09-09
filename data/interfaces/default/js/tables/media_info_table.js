@@ -25,6 +25,7 @@ media_info_table_options = {
     },
     "pagingType": "full_numbers",
     "stateSave": true,
+    "stateDuration": 0,
     "processing": false,
     "serverSide": true,
     "pageLength": 25,
@@ -58,7 +59,7 @@ media_info_table_options = {
                         expand_details = '<span class="expand-media-info-tooltip" data-toggle="tooltip" title="Show Photos"><i class="fa fa-plus-circle fa-fw"></i></span>';
                         $(td).html('<div><a href="#"><div style="float: left;">' + expand_details + '&nbsp;' + date + '</div></a></div>');
                     } else {
-                        $(td).html('<div style="float: left;"><i class="fa fa-fw"></i>&nbsp;' + date + '</div>');
+                        $(td).html('<div style="float: left;"><i class="fa fa-plus-circle fa-fw fa-blank"></i>&nbsp;' + date + '</div>');
                     }
                 }
             },
@@ -299,7 +300,7 @@ media_info_table_options = {
             ' (filtered from ' + humanFileSize(settings.json.total_file_size) + ')</span>');
     },
     "preDrawCallback": function (settings) {
-        var msg = "<i class='fa fa-refresh fa-spin'></i>&nbspFetching rows...";
+        var msg = "<i class='fa fa-refresh fa-spin'></i>&nbsp; Fetching rows...";
         showMsg(msg, false, false, 0)
     },
     "rowCallback": function (row, rowData, rowIndex) {

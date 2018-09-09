@@ -7,6 +7,7 @@ sync_table_options = {
     "order": [ [ 0, 'desc'], [ 1, 'asc'], [2, 'asc'] ],
     "pageLength": 25,
     "stateSave": true,
+    "stateDuration": 0,
     "language": {
         "search": "Search: ",
         "lengthMenu": "Show _MENU_ lines per page",
@@ -147,7 +148,7 @@ sync_table_options = {
 
     },
     "preDrawCallback": function (settings) {
-        var msg = "<i class='fa fa-refresh fa-spin'></i>&nbspFetching rows...";
+        var msg = "<i class='fa fa-refresh fa-spin'></i>&nbsp; Fetching rows...";
         showMsg(msg, false, false, 0)
     },
     "rowCallback": function (row, rowData, rowIndex) {

@@ -19,14 +19,16 @@ from collections import OrderedDict
 import version
 
 # Identify Our Application
+PRODUCT = 'Tautulli'
 PLATFORM = platform.system()
 PLATFORM_RELEASE = platform.release()
 PLATFORM_VERSION = platform.version()
 PLATFORM_LINUX_DISTRO = ' '.join(x for x in platform.linux_distribution() if x)
+PLATFORM_DEVICE_NAME = platform.node()
 BRANCH = version.PLEXPY_BRANCH
 RELEASE = version.PLEXPY_RELEASE_VERSION
 
-USER_AGENT = 'Tautulli/{} ({} {})'.format(RELEASE, PLATFORM, PLATFORM_RELEASE)
+USER_AGENT = '{}/{} ({} {})'.format(PRODUCT, RELEASE, PLATFORM, PLATFORM_RELEASE)
 
 DEFAULT_USER_THUMB = "interfaces/default/images/gravatar-default-80x80.png"
 DEFAULT_POSTER_THUMB = "interfaces/default/images/poster.png"
@@ -87,6 +89,7 @@ PLATFORM_NAMES = {
     'samsung': 'samsung',
     'synclounge': 'synclounge',
     'tivo': 'tivo',
+    'tizen': 'samsung',
     'tvos': 'atv',
     'vizio': 'opera',
     'wiiu': 'wiiu',
@@ -174,7 +177,8 @@ HW_ENCODERS = [
     'videotoolbox',
     'mediacodecndk',
     'vaapi',
-    'nvenc'
+    'nvenc',
+    'x264'
 ]
 
 EXTRA_TYPES = {
@@ -306,10 +310,18 @@ NOTIFICATION_PARAMETERS = [
              {'name': 'Server Version', 'type': 'str', 'value': 'server_version', 'description': 'The current version of your Plex Server.'},
              {'name': 'Server ID', 'type': 'str', 'value': 'server_machine_id', 'description': 'The unique identifier for your Plex Server.'},
              {'name': 'Action', 'type': 'str', 'value': 'action', 'description': 'The action that triggered the notification.'},
-             {'name': 'Week Number', 'type': 'int', 'value': 'week_number', 'description': 'The week number of the year when the notfication was triggered.'},
-             {'name': 'Datestamp', 'type': 'str', 'value': 'datestamp', 'description': 'The date (in date format) when the notification was triggered.'},
-             {'name': 'Timestamp', 'type': 'str', 'value': 'timestamp', 'description': 'The time (in time format) when the notification was triggered.'},
-             {'name': 'Unix Time', 'type': 'int', 'value': 'unixtime', 'description': 'The unix timestamp when the notification was triggered.'},
+             {'name': 'Current Year', 'type': 'int', 'value': 'current_year', 'description': 'The year when the notfication is triggered.'},
+             {'name': 'Current Month', 'type': 'int', 'value': 'current_month', 'description': 'The month when the notfication is triggered.', 'example': '1 to 12'},
+             {'name': 'Current Day', 'type': 'int', 'value': 'current_day', 'description': 'The day when the notfication is triggered.', 'example': '1 to 31'},
+             {'name': 'Current Hour', 'type': 'int', 'value': 'current_hour', 'description': 'The hour when the notfication is triggered.', 'example': '0 to 23'},
+             {'name': 'Current Minute', 'type': 'int', 'value': 'current_minute', 'description': 'The minute when the notfication is triggered.', 'example': '0 to 59'},
+             {'name': 'Current Second', 'type': 'int', 'value': 'current_second', 'description': 'The second when the notfication is triggered.', 'example': '0 to 59'},
+             {'name': 'Current Weekday', 'type': 'int', 'value': 'current_weekday', 'description': 'The ISO weekday when the notfication is triggered.', 'example': '1 (Mon) to 7 (Sun)'},
+             {'name': 'Current Week', 'type': 'int', 'value': 'current_week', 'description': 'The ISO week number when the notfication is triggered.', 'example': '1 to 52'},
+             {'name': 'Datestamp', 'type': 'str', 'value': 'datestamp', 'description': 'The date (in date format) when the notification is triggered.'},
+             {'name': 'Timestamp', 'type': 'str', 'value': 'timestamp', 'description': 'The time (in time format) when the notification is triggered.'},
+             {'name': 'Unix Time', 'type': 'int', 'value': 'unixtime', 'description': 'The unix timestamp when the notification is triggered.'},
+             {'name': 'UTC Time', 'type': 'int', 'value': 'utctime', 'description': 'The UTC timestamp in ISO format when the notification is triggered.'},
         ]
      },
     {
@@ -339,6 +351,7 @@ NOTIFICATION_PARAMETERS = [
              {'name': 'Optimized Version', 'type': 'int', 'value': 'optimized_version', 'description': 'If the stream is an optimized version.', 'example': '0 or 1'},
              {'name': 'Optimized Version Profile', 'type': 'str', 'value': 'optimized_version_profile', 'description': 'The optimized version profile of the stream.'},
              {'name': 'Synced Version', 'type': 'int', 'value': 'synced_version', 'description': 'If the stream is an synced version.', 'example': '0 or 1'},
+             {'name': 'Live', 'type': 'int', 'value': 'live', 'description': 'If the stream is live TV.', 'example': '0 or 1'},
              {'name': 'Stream Local', 'type': 'int', 'value': 'stream_local', 'description': 'If the stream is local.', 'example': '0 or 1'},
              {'name': 'Stream Location', 'type': 'str', 'value': 'stream_location', 'description': 'The network location of the stream.', 'example': 'lan or wan'},
              {'name': 'Stream Bandwidth', 'type': 'int', 'value': 'stream_bandwidth', 'description': 'The required bandwidth (in kbps) of the stream.', 'help_text': 'not the used bandwidth'},
@@ -394,7 +407,7 @@ NOTIFICATION_PARAMETERS = [
     {
         'category': 'Source Metadata Details',
         'parameters': [
-             {'name': 'Media Type', 'type': 'str', 'value': 'media_type', 'description': 'The type of media.', 'example': 'movie, show, season, episode, artist, album, track'},
+             {'name': 'Media Type', 'type': 'str', 'value': 'media_type', 'description': 'The type of media.', 'example': 'movie, show, season, episode, artist, album, track, clip'},
              {'name': 'Title', 'type': 'str', 'value': 'title', 'description': 'The full title of the item.'},
              {'name': 'Library Name', 'type': 'str', 'value': 'library_name', 'description': 'The library name of the item.'},
              {'name': 'Show Name', 'type': 'str', 'value': 'show_name', 'description': 'The title of the TV series.'},
@@ -402,6 +415,7 @@ NOTIFICATION_PARAMETERS = [
              {'name': 'Artist Name', 'type': 'str', 'value': 'artist_name', 'description': 'The name of the artist.'},
              {'name': 'Album Name', 'type': 'str', 'value': 'album_name', 'description': 'The title of the album.'},
              {'name': 'Track Name', 'type': 'str', 'value': 'track_name', 'description': 'The title of the track.'},
+             {'name': 'Track Artist', 'type': 'str', 'value': 'track_artist', 'description': 'The name of the artist of the track.'},
              {'name': 'Season Number', 'type': 'int', 'value': 'season_num', 'description': 'The season number.', 'example': 'e.g. 1, or 1-3'},
              {'name': 'Season Number 00', 'type': 'int', 'value': 'season_num00', 'description': 'The two digit season number.', 'example': 'e.g. 01, or 01-03'},
              {'name': 'Episode Number', 'type': 'int', 'value': 'episode_num', 'description': 'The episode number.', 'example': 'e.g. 6, or 6-10'},
@@ -429,7 +443,8 @@ NOTIFICATION_PARAMETERS = [
              {'name': 'Summary', 'type': 'str', 'value': 'summary', 'description': 'A short plot summary for the item.'},
              {'name': 'Tagline', 'type': 'str', 'value': 'tagline', 'description': 'A tagline for the media item.'},
              {'name': 'Rating', 'type': 'float', 'value': 'rating', 'description': 'The rating (out of 10) for the item.'},
-             {'name': 'Audience Rating', 'type': 'float', 'value': 'audience_rating', 'description': 'The audience rating (%) for the item.', 'help_text': 'Ratings source must be Rotten Tomatoes for the Plex Movie agent'},
+             {'name': 'Critic Rating', 'type': 'int', 'value': 'critic_rating', 'description': 'The critic rating (%) for the item.', 'help_text': 'Ratings source must be Rotten Tomatoes for the Plex Movie agent'},
+             {'name': 'Audience Rating', 'type': 'int', 'value': 'audience_rating', 'description': 'The audience rating (%) for the item.', 'help_text': 'Ratings source must be Rotten Tomatoes for the Plex Movie agent'},
              {'name': 'Duration', 'type': 'int', 'value': 'duration', 'description': 'The duration (in minutes) for the item.'},
              {'name': 'Poster URL', 'type': 'str', 'value': 'poster_url', 'description': 'A URL for the movie, TV show, or album poster.'},
              {'name': 'Plex URL', 'type': 'str', 'value': 'plex_url', 'description': 'The Plex URL to your server for the item.'},
@@ -473,6 +488,7 @@ NOTIFICATION_PARAMETERS = [
              {'name': 'Subtitle Language', 'type': 'str', 'value': 'subtitle_language', 'description': 'The subtitle language of the original media.'},
              {'name': 'Subtitle Language Code', 'type': 'str', 'value': 'subtitle_language_code', 'description': 'The subtitle language code of the original media.'},
              {'name': 'File', 'type': 'str', 'value': 'file', 'description': 'The file path to the item.'},
+             {'name': 'Filename', 'type': 'str', 'value': 'filename', 'description': 'The file name of the item.'},
              {'name': 'File Size', 'type': 'int', 'value': 'file_size', 'description': 'The file size of the item.'},
              {'name': 'Section ID', 'type': 'int', 'value': 'section_id', 'description': 'The unique identifier for the library.'},
              {'name': 'Rating Key', 'type': 'int', 'value': 'rating_key', 'description': 'The unique identifier for the movie, episode, or track.'},
@@ -523,7 +539,14 @@ NEWSLETTER_PARAMETERS = [
             {'name': 'Server Name', 'type': 'str', 'value': 'server_name', 'description': 'The name of your Plex Server.'},
             {'name': 'Start Date', 'type': 'str', 'value': 'start_date', 'description': 'The start date of the newsletter.'},
             {'name': 'End Date', 'type': 'str', 'value': 'end_date', 'description': 'The end date of the newsletter.'},
-            {'name': 'Week Number', 'type': 'int', 'value': 'week_number', 'description': 'The week number of the year.'},
+            {'name': 'Current Year', 'type': 'int', 'value': 'current_year', 'description': 'The year of the start date of the newsletter.'},
+            {'name': 'Current Month', 'type': 'int', 'value': 'current_month', 'description': 'The month of the start date of the newsletter.', 'example': '1 to 12'},
+            {'name': 'Current Day', 'type': 'int', 'value': 'current_day', 'description': 'The day of the start date of the newsletter.', 'example': '1 to 31'},
+            {'name': 'Current Hour', 'type': 'int', 'value': 'current_hour', 'description': 'The hour of the start date of the newsletter.', 'example': '0 to 23'},
+            {'name': 'Current Minute', 'type': 'int', 'value': 'current_minute', 'description': 'The minute of the start date of the newsletter.', 'example': '0 to 59'},
+            {'name': 'Current Second', 'type': 'int', 'value': 'current_second', 'description': 'The second of the start date of the newsletter.', 'example': '0 to 59'},
+            {'name': 'Current Weekday', 'type': 'int', 'value': 'current_weekday', 'description': 'The ISO weekday of the start date of the newsletter.', 'example': '1 (Mon) to 7 (Sun)'},
+            {'name': 'Current Week', 'type': 'int', 'value': 'current_week', 'description': 'The ISO week number of the start date of the newsletter.', 'example': '1 to 52'},
             {'name': 'Newsletter Time Frame', 'type': 'int', 'value': 'newsletter_time_frame', 'description': 'The time frame included in the newsletter.'},
             {'name': 'Newsletter Time Frame Units', 'type': 'str', 'value': 'newsletter_time_frame_units', 'description': 'The time frame units included in the newsletter.'},
             {'name': 'Newsletter URL', 'type': 'str', 'value': 'newsletter_url', 'description': 'The self-hosted URL to the newsletter.'},

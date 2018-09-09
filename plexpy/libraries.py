@@ -633,7 +633,8 @@ class Libraries(object):
                     if 'media_info' in child_metadata and len(child_metadata['media_info']) > 0:
                         media_info = child_metadata['media_info'][0]
                         if 'parts' in media_info and len (media_info['parts']) > 0:
-                            media_part_info = media_info['parts'][0]
+                            media_part_info = next((p for p in media_info['parts'] if p['selected']),
+                                                   media_info['parts'][0])
 
                     file_size += helpers.cast_to_int(media_part_info.get('file_size', 0))
 
@@ -757,37 +758,42 @@ class Libraries(object):
                 # If there is no library data we must return something
                 return default_return
 
-    def get_watch_time_stats(self, section_id=None):
+    def get_watch_time_stats(self, section_id=None, grouping=None):
         if not session.allow_session_library(section_id):
             return []
+
+        if grouping is None:
+            grouping = plexpy.CONFIG.GROUP_HISTORY_TABLES
 
         monitor_db = database.MonitorDatabase()
 
         time_queries = [1, 7, 30, 0]
         library_watch_time_stats = []
 
+        group_by = 'session_history.reference_id' if grouping else 'session_history.id'
+
         for days in time_queries:
             try:
                 if days > 0:
                     if str(section_id).isdigit():
                         query = 'SELECT (SUM(stopped - started) - ' \
-                                'SUM(CASE WHEN paused_counter is null THEN 0 ELSE paused_counter END)) as total_time, ' \
-                                'COUNT(session_history.id) AS total_plays ' \
+                                'SUM(CASE WHEN paused_counter IS NULL THEN 0 ELSE paused_counter END)) AS total_time, ' \
+                                'COUNT(DISTINCT %s) AS total_plays ' \
                                 'FROM session_history ' \
                                 'JOIN session_history_metadata ON session_history_metadata.id = session_history.id ' \
                                 'WHERE datetime(stopped, "unixepoch", "localtime") >= datetime("now", "-%s days", "localtime") ' \
-                                'AND section_id = ?' % days
+                                'AND section_id = ?' % (group_by, days)
                         result = monitor_db.select(query, args=[section_id])
                     else:
                         result = []
                 else:
                     if str(section_id).isdigit():
                         query = 'SELECT (SUM(stopped - started) - ' \
-                                'SUM(CASE WHEN paused_counter is null THEN 0 ELSE paused_counter END)) as total_time, ' \
-                                'COUNT(session_history.id) AS total_plays ' \
+                                'SUM(CASE WHEN paused_counter IS NULL THEN 0 ELSE paused_counter END)) AS total_time, ' \
+                                'COUNT(DISTINCT %s) AS total_plays ' \
                                 'FROM session_history ' \
                                 'JOIN session_history_metadata ON session_history_metadata.id = session_history.id ' \
-                                'WHERE section_id = ?'
+                                'WHERE section_id = ?' % group_by
                         result = monitor_db.select(query, args=[section_id])
                     else:
                         result = []
@@ -812,25 +818,30 @@ class Libraries(object):
 
         return library_watch_time_stats
 
-    def get_user_stats(self, section_id=None):
+    def get_user_stats(self, section_id=None, grouping=None):
         if not session.allow_session_library(section_id):
             return []
+
+        if grouping is None:
+            grouping = plexpy.CONFIG.GROUP_HISTORY_TABLES
 
         monitor_db = database.MonitorDatabase()
 
         user_stats = []
 
+        group_by = 'session_history.reference_id' if grouping else 'session_history.id'
+
         try:
             if str(section_id).isdigit():
                 query = 'SELECT (CASE WHEN users.friendly_name IS NULL OR TRIM(users.friendly_name) = "" ' \
                         'THEN users.username ELSE users.friendly_name END) AS friendly_name, ' \
-                        'users.user_id, users.thumb, COUNT(user) AS user_count ' \
+                        'users.user_id, users.thumb, COUNT(DISTINCT %s) AS user_count ' \
                         'FROM session_history ' \
                         'JOIN session_history_metadata ON session_history_metadata.id = session_history.id ' \
                         'JOIN users ON users.user_id = session_history.user_id ' \
                         'WHERE section_id = ? ' \
                         'GROUP BY users.user_id ' \
-                        'ORDER BY user_count DESC'
+                        'ORDER BY user_count DESC' % group_by
                 result = monitor_db.select(query, args=[section_id])
             else:
                 result = []
@@ -862,13 +873,13 @@ class Libraries(object):
             if str(section_id).isdigit():
                 query = 'SELECT session_history.id, session_history.media_type, ' \
                         'session_history.rating_key, session_history.parent_rating_key, session_history.grandparent_rating_key, ' \
-                        'title, parent_title, grandparent_title, thumb, parent_thumb, grandparent_thumb, media_index, parent_media_index, ' \
+                        'title, parent_title, grandparent_title, original_title, ' \
+                        'thumb, parent_thumb, grandparent_thumb, media_index, parent_media_index, ' \
                         'year, started, user, content_rating, labels, section_id ' \
                         'FROM session_history_metadata ' \
                         'JOIN session_history ON session_history_metadata.id = session_history.id ' \
                         'WHERE section_id = ? ' \
-                        'GROUP BY (CASE WHEN session_history.media_type = "track" THEN session_history.parent_rating_key ' \
-                        '   ELSE session_history.rating_key END) ' \
+                        'GROUP BY session_history.rating_key ' \
                         'ORDER BY started DESC LIMIT ?'
                 result = monitor_db.select(query, args=[section_id, limit])
             else:
@@ -893,6 +904,7 @@ class Libraries(object):
                                  'title': row['title'],
                                  'parent_title': row['parent_title'],
                                  'grandparent_title': row['grandparent_title'],
+                                 'original_title': row['original_title'],
                                  'thumb': thumb,
                                  'media_index': row['media_index'],
                                  'parent_media_index': row['parent_media_index'],

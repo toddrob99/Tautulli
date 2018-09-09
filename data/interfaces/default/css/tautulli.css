@@ -70,6 +70,8 @@ div.form-control .selectize-input {
     background-color: #555;
     border-radius: 3px;
     transition: background-color .3s;
+}
+select.form-control {
     height: 32px !important;
 }
 .react-selectize.root-node .react-selectize-control,
@@ -99,6 +101,9 @@ div.form-control .selectize-input {
     overflow: hidden;
     text-overflow: ellipsis;
 }
+.wizard-input-section p.welcome-message {
+    margin: 20px 0;
+}
 .wizard-input-section .selectize-control.form-control.selectize-pms-ip .selectize-input > div {
     max-width: 360px;
     overflow: hidden;
@@ -112,6 +117,10 @@ div.form-control .selectize-input {
 }
 .wizard-input-section .selectize-dropdown.form-control.selectize-pms-ip {
     margin-top: 0 !important;
+}
+#condition-widget .fa-plus,
+#condition-widget .fa-minus {
+    cursor: pointer;
 }
 .react-selectize.root-node .react-selectize-control .react-selectize-placeholder {
     color: #fff !important;
@@ -1599,10 +1608,8 @@ a:hover .dashboard-recent-media-cover {
     margin: 0;
     background: none;
 }
-.summary-navbar-list .breadcrumb > li + li:before {
+.summary-navbar-list .breadcrumb > .breadcrumb-arrow {
     color: #444;
-    font-family: FontAwesome;
-    content: "\f054";
     padding: 0 15px;
 }
 .summary-navbar-list .breadcrumb > .active {
@@ -2113,21 +2120,16 @@ a:hover .item-children-poster {
 }
 .settings-alert ul li {
     list-style: none;
-    padding: 5px 12px 5px 35px;
+    padding: 5px 12px;
     margin: 0;
     border: 1px solid #ebccd1;
     border-radius: 4px;
 }
 .settings-alert ul li:before {
     content: "\f071";
-    font-family: FontAwesome;
-    font-style: normal;
-    font-weight: normal;
-    text-decoration: inherit;
-    font-size: 18px;
-    position: absolute;
-    top: 5px;
-    left: 12px;
+    font-family: "Font Awesome 5 Free";
+    font-weight: 900;
+    margin-right: 5px;
 }
 .settings-warning {
     color: #eb8600;
@@ -2935,6 +2937,7 @@ a .home-platforms-list-cover-face:hover
 }
 .stacked-configs > li > span > a.toggle-left,
 .stacked-configs > li > span > span.toggle-left {
+    float: left;
     color: #444;
     padding-right: 8px;
 }
@@ -2944,16 +2947,6 @@ a .home-platforms-list-cover-face:hover
 .stacked-configs > li > span > a.active,
 .stacked-configs > li > span > span.active {
     color: #f9be03;
-}
-.stacked-configs > li.new-notification-agent,
-.stacked-configs > li.notification-agent,
-.stacked-configs > li.add-notification-agent,
-.stacked-configs > li.new-newsletter-agent,
-.stacked-configs > li.newsletter-agent,
-.stacked-configs > li.add-newsletter-agent,
-.stacked-configs > li.mobile-device,
-.stacked-configs > li.add-mobile-device {
-    cursor: pointer;
 }
 .stacked-configs > li.mobile-device > span > a.toggle-left,
 .stacked-configs > li.mobile-device > span > span.toggle-left {
@@ -2966,10 +2959,13 @@ a .home-platforms-list-cover-face:hover
     background: #282828;
     list-style: none;
 }
-.accordion .link {
+.accordion li {
+    margin: 0;
+}
+.accordion li .link {
     cursor: pointer;
     display: block;
-    padding: 8px 20px 8px 30px;
+    padding: 8px 12px 8px 12px;
     color: #999;
     border-bottom: 1px solid #2d2d2d;
     position: relative;
@@ -2977,37 +2973,32 @@ a .home-platforms-list-cover-face:hover
     -o-transition: all 0.3s ease;
     transition: all 0.3s ease;
 }
-.accordion li {
-    margin: 0;
+.accordion li .link:hover,
+.accordion li .link:hover i.fa {
+    background: #2f2f2f;
+}
+.accordion li .link i.fa {
+    color: #999;
+}
+.accordion li .link span.toggle-right {
+    float: right;
+    padding-left: 10px;
 }
 .accordion li:last-child .link {
     border-bottom: 0;
 }
-.accordion li i.fa {
-    position: absolute;
-    top: 10px;
-    left: 10px;
+.accordion li .fa-chevron-down {
     color: #999;
     -webkit-transition: all 0.3s ease;
     -o-transition: all 0.3s ease;
     transition: all 0.3s ease;
 }
-.accordion li i.fa-chevron-down {
-    right: 12px;
-    left: auto;
-    font-size: 16px;
-}
-.accordion li .link:hover {
-    color: #FFF;
-    background: #2f2f2f;
-}
-.accordion li.open .link {
+.accordion li.open .link,
+.accordion li.open .link i.fa {
     color: #f9be03;
 }
-.accordion li.open i {
+.accordion li.open .fa-chevron-down {
     color: #f9be03;
-}
-.accordion li.open i.fa-chevron-down {
     -webkit-transform: rotate(180deg);
     -ms-transform: rotate(180deg);
     -o-transform: rotate(180deg);
@@ -3165,34 +3156,6 @@ div.dataTables_info {
     -o-transition: none !important;
     transition: none !important;
 }
-.settings-alert {
-    float: left;
-    padding: 0;
-    margin: 5px 0;
-    border: 0;
-    position: relative;
-}
-.settings-alert ul {
-    padding: 0;
-}
-.settings-alert ul li {
-    list-style: none;
-    padding: 5px 12px 5px 35px;
-    margin: 0;
-    border: 1px solid #ebccd1;
-    border-radius: 4px;
-}
-.settings-alert ul li:before {
-    content: "\f071";
-    font-family: FontAwesome;
-    font-style: normal;
-    font-weight: normal;
-    text-decoration: inherit;
-    font-size: 18px;
-    position: absolute;
-    top: 5px;
-    left: 12px;
-}
 #users-to-delete > li,
 #users-to-purge > li,
 #libraries-to-delete > li,
@@ -3325,7 +3288,7 @@ pre::-webkit-scrollbar-thumb {
     }
 }
 #search_form {
-    width: 300px;
+    width: 270px;
     padding: 8px 15px;
 }
 #search_form span.input-textbox {
@@ -3514,6 +3477,9 @@ a.no-highlight:hover {
         max-width: 1170px;
     }
 }
+.login-body-container {
+    margin: 50px 0;
+}
 .login-container {
     margin-right: auto;
     margin-left: auto;
@@ -3526,6 +3492,11 @@ a.no-highlight:hover {
 .login-logo {
     margin: 0 auto 50px auto;
     text-align: center;
+}
+.login-container .login-method-header {
+    text-align: center;
+    font-weight: 600;
+    text-transform: uppercase;
 }
 .login-container .form-group {
     margin-bottom: 20px;
@@ -3547,14 +3518,42 @@ a.no-highlight:hover {
     text-shadow: 0 -1px 1px rgba(0,0,0,.4),0 0 15px rgba(0,0,0,.2);
 }
 .login-container .remember-group {
-    float: left;
     color: #999;
+    display: inline-block;
+    margin-top: 7.5px;
 }
 .login-container .remember-group .control-label {
     display: inline;
     margin-bottom: 0;
     font-weight: 400;
     cursor: pointer;
+}
+.login-divider {
+    text-align: center;
+    border-bottom: 1px solid #555;
+    line-height: 0.1em;
+    margin: 50px auto;
+    max-width: 400px;
+    text-transform: uppercase;
+}
+.login-divider span {
+    background: #1f1f1f;
+    padding: 0 15px;
+    color: #999;
+}
+.login-button-plex {
+    text-align: center;
+}
+.login-button-plex .remember-group {
+    margin-top: 20px;
+}
+.login-button-plex button#sign-in-plex {
+    float: none;
+}
+.login-alert {
+    text-align: center;
+    padding: 8px;
+    display: none;
 }
 #admin-login-modal .form-group label {
     font-weight: 400;
@@ -4101,4 +4100,78 @@ a[data-tab-destination] {
 .newsletter-logo {
     margin: 0 auto 50px auto;
     text-align: center;
+}
+.pointer {
+    cursor: pointer;
+}
+
+.iframe-container {
+    width: 100%;
+    height: calc(100vh - 200px);
+    position: relative;
+}
+.iframe-overlay {
+    width: 100%;
+    height: 100%;
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: url(../images/discord-overlay.png) no-repeat;
+    background-size: cover;
+    border: 1px solid #36393e;
+}
+.iframe-button-container {
+    margin: 0;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+}
+.iframe-button {
+    color: #fff;
+    border-radius: 20px;
+    text-align: center;
+    cursor: pointer;
+    font-size: 15px;
+    height: 28px;
+    line-height: 28px;
+    min-width: 200px;
+    transition: box-shadow 0.3s ease;
+    padding: 0 15px;
+    background: rgba(114, 137, 218, 0.4);
+    text-transform: uppercase;
+    text-decoration: none;
+    display: block;
+}
+.iframe-button:hover,
+.iframe-button:focus {
+    color: #fff;
+    box-shadow: rgba(0, 0, 0, 0.1) 0px 0px 0px 99999px inset, rgba(0, 0, 0, 0.2) 0px 1px 5px 0px, rgba(0, 0, 0, 0.14) 0px 2px 2px 0px, rgba(0, 0, 0, 0.12) 0px 3px 1px -2px;
+}
+.iframe-button:active {
+    box-shadow: rgba(255, 255, 255, 0.1) 0px 0px 0px 99999px inset, rgba(0, 0, 0, 0.2) 0px 5px 5px -3px, rgba(0, 0, 0, 0.14) 0px 8px 10px 1px, rgba(0, 0, 0, 0.12) 0px 3px 14px 2px;
+}
+.iframe {
+    width: 100%;
+    height: 100%;
+    position: inherit;
+    display: block;
+    border: 0;
+}
+.fa-blank {
+    visibility: hidden;
+}
+
+#browser-warning {
+    height: 25px;
+    width: 100%;
+    background: #cc7b19;
+    text-align: center;
+    font-weight: bold;
+    padding-top: 2px;
+    position: absolute;
+    top: 0;
+    z-index: 9999;
 }

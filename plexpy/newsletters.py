@@ -65,7 +65,8 @@ def available_notification_actions():
 
 
 def get_agent_class(newsletter_id=None, newsletter_id_name=None, agent_id=None, config=None, email_config=None,
-                    start_date=None, end_date=None, subject=None, body=None, message=None):
+                    start_date=None, end_date=None, subject=None, body=None, message=None,
+                    email_msg_id=None, email_reply_msg_id=None):
     if str(agent_id).isdigit():
         agent_id = int(agent_id)
 
@@ -77,7 +78,9 @@ def get_agent_class(newsletter_id=None, newsletter_id_name=None, agent_id=None, 
                   'end_date': end_date,
                   'subject': subject,
                   'body': body,
-                  'message': message}
+                  'message': message,
+                  'email_msg_id': email_msg_id,
+                  'email_reply_msg_id': email_reply_msg_id}
 
         if agent_id == 0:
             return RecentlyAdded(**kwargs)
@@ -196,6 +199,7 @@ def add_newsletter_config(agent_id=None, **kwargs):
         newsletter_id = db.last_insert_id()
         logger.info(u"Tautulli Newsletters :: Added new newsletter agent: %s (newsletter_id %s)."
                     % (agent['label'], newsletter_id))
+        blacklist_logger()
         return newsletter_id
     except Exception as e:
         logger.warn(u"Tautulli Newsletters :: Unable to add newsletter agent: %s." % e)
@@ -206,7 +210,7 @@ def set_newsletter_config(newsletter_id=None, agent_id=None, **kwargs):
     if str(agent_id).isdigit():
         agent_id = int(agent_id)
     else:
-        logger.error(u"Tautulli Newsletters :: Unable to set exisiting newsletter: invalid agent_id %s."
+        logger.error(u"Tautulli Newsletters :: Unable to set existing newsletter: invalid agent_id %s."
                      % agent_id)
         return False
 
@@ -254,6 +258,7 @@ def set_newsletter_config(newsletter_id=None, agent_id=None, **kwargs):
         logger.info(u"Tautulli Newsletters :: Updated newsletter agent: %s (newsletter_id %s)."
                     % (agent['label'], newsletter_id))
         newsletter_handler.schedule_newsletters(newsletter_id=newsletter_id)
+        blacklist_logger()
         return True
     except Exception as e:
         logger.warn(u"Tautulli Newsletters :: Unable to update newsletter agent: %s." % e)
@@ -274,6 +279,17 @@ def send_newsletter(newsletter_id=None, subject=None, body=None, message=None, n
         logger.debug(u"Tautulli Newsletters :: Notification requested but no newsletter_id received.")
 
 
+def blacklist_logger():
+    db = database.MonitorDatabase()
+    notifiers = db.select('SELECT newsletter_config, email_config FROM newsletters')
+
+    for n in notifiers:
+        config = json.loads(n['newsletter_config'] or '{}')
+        logger.blacklist_config(config)
+        email_config = json.loads(n['email_config'] or '{}')
+        logger.blacklist_config(email_config)
+
+
 def serve_template(templatename, **kwargs):
     if plexpy.CONFIG.NEWSLETTER_CUSTOM_DIR:
         template_dir = plexpy.CONFIG.NEWSLETTER_CUSTOM_DIR
@@ -288,9 +304,9 @@ def serve_template(templatename, **kwargs):
 
     try:
         template = _hplookup.get_template(templatename)
-        return template.render(**kwargs)
+        return template.render(**kwargs), False
     except:
-        return exceptions.html_error_template().render()
+        return exceptions.html_error_template().render(), True
 
 
 def generate_newsletter_uuid():
@@ -313,6 +329,7 @@ class Newsletter(object):
                        'time_frame': 7,
                        'time_frame_units': 'days',
                        'formatted': 1,
+                       'threaded': 0,
                        'notifier_id': 0,
                        'filename': '',
                        'save_only': 0}
@@ -326,10 +343,14 @@ class Newsletter(object):
     _TEMPLATE = ''
 
     def __init__(self, newsletter_id=None, newsletter_id_name=None, config=None, email_config=None,
-                 start_date=None, end_date=None, subject=None, body=None, message=None):
+                 start_date=None, end_date=None, subject=None, body=None, message=None,
+                 email_msg_id=None, email_reply_msg_id=None):
         self.config = self.set_config(config=config, default=self._DEFAULT_CONFIG)
         self.email_config = self.set_config(config=email_config, default=self._DEFAULT_EMAIL_CONFIG)
         self.uuid = generate_newsletter_uuid()
+
+        self.email_msg_id = email_msg_id
+        self.email_reply_msg_id = email_reply_msg_id
 
         self.newsletter_id = newsletter_id
         self.newsletter_id_name = newsletter_id_name or ''
@@ -376,6 +397,7 @@ class Newsletter(object):
         self.newsletter = None
 
         self.is_preview = False
+        self.template_error = None
 
     def set_config(self, config=None, default=None):
         return self._validate_config(config=config, default=default)
@@ -421,7 +443,7 @@ class Newsletter(object):
 
         self.retrieve_data()
 
-        newsletter_rendered = serve_template(
+        newsletter_rendered, self.template_error = serve_template(
             templatename=self._TEMPLATE,
             uuid=self.uuid,
             subject=self.subject_formatted,
@@ -432,14 +454,17 @@ class Newsletter(object):
             preview=self.is_preview
         )
 
+        if self.template_error:
+            return newsletter_rendered
+
         # Force Tautulli footer
         if '<!-- FOOTER MESSAGE - DO NOT REMOVE -->' in newsletter_rendered:
             newsletter_rendered = newsletter_rendered.replace(
                 '<!-- FOOTER MESSAGE - DO NOT REMOVE -->',
                 'Newsletter generated by <a href="https://tautulli.com" target="_blank" '
-                'style="text-decoration: underline;color: #fff;font-size: 12px;">Tautulli</a>.'
+                'style="text-decoration: underline;color: inherit;font-size: inherit;">Tautulli</a>.'
             )
-            return newsletter_rendered
+
         else:
             msg = ('<div style="text-align: center;padding-top: 100px;padding-bottom: 100px;">'
                    '<p style="font-family: \'Open Sans\', Helvetica, Arial, sans-serif;color: #282A2D;'
@@ -449,10 +474,15 @@ class Newsletter(object):
                    '<a href="https://tautulli.com" target="_blank">Tautulli</a>.<br>Thank you.'
                    '</p></div>')
             newsletter_rendered = re.sub(r'(<body.*?>)', r'\1' + msg, newsletter_rendered)
-            return newsletter_rendered
+
+        return newsletter_rendered
 
     def send(self):
         self.newsletter = self.generate_newsletter()
+
+        if self.template_error:
+            logger.error(u"Tautulli Newsletters :: %s newsletter failed to render template. Newsletter not sent." % self.NAME)
+            return False
 
         if not self._has_data():
             logger.warn(u"Tautulli Newsletters :: %s newsletter has no data. Newsletter not sent." % self.NAME)
@@ -494,12 +524,16 @@ class Newsletter(object):
             if plexpy.CONFIG.NEWSLETTER_SELF_HOSTED and plexpy.CONFIG.HTTP_BASE_URL:
                 plaintext += self._DEFAULT_BODY.format(**self.parameters)
 
+            email_reply_msg_id = self.email_reply_msg_id if self.config['threaded'] else None
+
             if self.email_config['notifier_id']:
                 return send_notification(
                     notifier_id=self.email_config['notifier_id'],
                     subject=self.subject_formatted,
                     body=newsletter_stripped,
-                    plaintext=plaintext
+                    plaintext=plaintext,
+                    msg_id=self.email_msg_id,
+                    reply_msg_id=email_reply_msg_id
                 )
 
             else:
@@ -507,7 +541,9 @@ class Newsletter(object):
                 return email.notify(
                     subject=self.subject_formatted,
                     body=newsletter_stripped,
-                    plaintext=plaintext
+                    plaintext=plaintext,
+                    msg_id=self.email_msg_id,
+                    reply_msg_id=email_reply_msg_id
                 )
         elif self.config['notifier_id']:
             return send_notification(
@@ -533,6 +569,14 @@ class Newsletter(object):
             'server_name': plexpy.CONFIG.PMS_NAME,
             'start_date': self.start_date.format(date_format),
             'end_date': self.end_date.format(date_format),
+            'current_year': self.start_date.year,
+            'current_month': self.start_date.month,
+            'current_day': self.start_date.day,
+            'current_hour': self.start_date.hour,
+            'current_minute': self.start_date.minute,
+            'current_second': self.start_date.second,
+            'current_weekday': self.start_date.isocalendar()[2],
+            'current_week': self.start_date.isocalendar()[1],
             'week_number': self.start_date.isocalendar()[1],
             'newsletter_time_frame': self.config['time_frame'],
             'newsletter_time_frame_units': self.config['time_frame_units'],
@@ -783,8 +827,9 @@ class RecentlyAdded(Newsletter):
                 else:
                     item['art_hash'] = ''
 
-                item['poster_url'] = ''
+                item['thumb_url'] = ''
                 item['art_url'] = ''
+                item['poster_url'] = item['thumb_url']  # Keep for backwards compatibility
 
         elif helpers.get_img_service():
             # Upload posters and art to image hosting service
@@ -800,7 +845,7 @@ class RecentlyAdded(Newsletter):
                     img=item['thumb'], rating_key=item['rating_key'], title=item['title'],
                     width=150, height=height, fallback=fallback)
 
-                item['poster_url'] = img_info.get('img_url') or common.ONLINE_POSTER_THUMB
+                item['thumb_url'] = img_info.get('img_url') or common.ONLINE_POSTER_THUMB
 
                 img_info = get_img_info(
                     img=item['art'], rating_key=item['rating_key'], title=item['title'],
@@ -810,6 +855,15 @@ class RecentlyAdded(Newsletter):
 
                 item['thumb_hash'] = ''
                 item['art_hash'] = ''
+                item['poster_url'] = item['thumb_url']  # Keep for backwards compatibility
+
+        else:
+            for item in movies + shows + albums:
+                item['thumb_hash'] = ''
+                item['art_hash'] = ''
+                item['thumb_url'] = ''
+                item['art_url'] = ''
+                item['poster_url'] = item['thumb_url']  # Keep for backwards compatibility
 
         self.data['recently_added'] = recently_added
 

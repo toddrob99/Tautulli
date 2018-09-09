@@ -18,6 +18,7 @@ import json
 import os
 import shutil
 import threading
+import urllib
 
 import cherrypy
 from cherrypy.lib.static import serve_file, serve_download
@@ -109,6 +110,7 @@ class WebInterface(object):
             "pms_is_cloud": plexpy.CONFIG.PMS_IS_CLOUD,
             "pms_token": plexpy.CONFIG.PMS_TOKEN,
             "pms_uuid": plexpy.CONFIG.PMS_UUID,
+            "pms_name": plexpy.CONFIG.PMS_NAME,
             "logging_ignore_interval": plexpy.CONFIG.LOGGING_IGNORE_INTERVAL
         }
 
@@ -247,23 +249,23 @@ class WebInterface(object):
     @cherrypy.tools.json_out()
     @requireAuth(member_of("admin"))
     @addtoapi()
-    def terminate_session(self, session_id=None, message=None, **kwargs):
-        """ Add a new notification agent.
+    def terminate_session(self, session_key=None, session_id=None, message=None, **kwargs):
+        """ Stop a streaming session.
 
             ```
             Required parameters:
-                session_id (str):           The id of the session to terminate
-                message (str):              A custom message to send to the client
+                session_key (int):          The session key of the session to terminate, OR
+                session_id (str):           The session id of the session to terminate
 
             Optional parameters:
-                None
+                message (str):              A custom message to send to the client
 
             Returns:
                 None
             ```
         """
         pms_connect = pmsconnect.PmsConnect()
-        result = pms_connect.terminate_session(session_id=session_id, message=message)
+        result = pms_connect.terminate_session(session_key=session_key, session_id=session_id, message=message)
 
         if result:
             return {'result': 'success', 'message': 'Session terminated.'}
@@ -273,8 +275,21 @@ class WebInterface(object):
     @cherrypy.expose
     @cherrypy.tools.json_out()
     @requireAuth(member_of("admin"))
-    def return_sessions_url(self, **kwargs):
-        return plexpy.CONFIG.PMS_URL + '/status/sessions?X-Plex-Token=' + plexpy.CONFIG.PMS_TOKEN
+    def return_plex_xml_url(self, endpoint='', plextv=False, **kwargs):
+        kwargs['X-Plex-Token'] = plexpy.CONFIG.PMS_TOKEN
+
+        if plextv == 'true':
+            base_url = 'https://plex.tv'
+        else:
+            if plexpy.CONFIG.PMS_URL_OVERRIDE:
+                base_url = plexpy.CONFIG.PMS_URL_OVERRIDE
+            else:
+                base_url = plexpy.CONFIG.PMS_URL
+
+        if '{machine_id}' in endpoint:
+            endpoint = endpoint.format(machine_id=plexpy.CONFIG.PMS_IDENTIFIER)
+
+        return base_url + endpoint + '?' + urllib.urlencode(kwargs)
 
     @cherrypy.expose
     @requireAuth()
@@ -789,7 +804,7 @@ class WebInterface(object):
     @cherrypy.tools.json_out()
     @requireAuth(member_of("admin"))
     @addtoapi()
-    def get_library_watch_time_stats(self, section_id=None, **kwargs):
+    def get_library_watch_time_stats(self, section_id=None, grouping=None, **kwargs):
         """ Get a library's watch time statistics.
 
             ```
@@ -797,7 +812,7 @@ class WebInterface(object):
                 section_id (str):               The id of the Plex library section
 
             Optional parameters:
-                None
+                grouping (int):         0 or 1
 
             Returns:
                 json:
@@ -820,9 +835,11 @@ class WebInterface(object):
                      ]
             ```
         """
+        grouping = int(grouping) if str(grouping).isdigit() else grouping
+
         if section_id:
             library_data = libraries.Libraries()
-            result = library_data.get_watch_time_stats(section_id=section_id)
+            result = library_data.get_watch_time_stats(section_id=section_id, grouping=grouping)
             if result:
                 return result
             else:
@@ -834,7 +851,7 @@ class WebInterface(object):
     @cherrypy.tools.json_out()
     @requireAuth(member_of("admin"))
     @addtoapi()
-    def get_library_user_stats(self, section_id=None, **kwargs):
+    def get_library_user_stats(self, section_id=None, grouping=None, **kwargs):
         """ Get a library's user statistics.
 
             ```
@@ -842,7 +859,7 @@ class WebInterface(object):
                 section_id (str):               The id of the Plex library section
 
             Optional parameters:
-                None
+                grouping (int):         0 or 1
 
             Returns:
                 json:
@@ -861,9 +878,11 @@ class WebInterface(object):
                      ]
             ```
         """
+        grouping = int(grouping) if str(grouping).isdigit() else grouping
+
         if section_id:
             library_data = libraries.Libraries()
-            result = library_data.get_user_stats(section_id=section_id)
+            result = library_data.get_user_stats(section_id=section_id, grouping=grouping)
             if result:
                 return result
             else:
@@ -1397,7 +1416,7 @@ class WebInterface(object):
     @cherrypy.tools.json_out()
     @requireAuth(member_of("admin"))
     @addtoapi()
-    def get_user_watch_time_stats(self, user_id=None, **kwargs):
+    def get_user_watch_time_stats(self, user_id=None, grouping=None, **kwargs):
         """ Get a user's watch time statistics.
 
             ```
@@ -1405,7 +1424,7 @@ class WebInterface(object):
                 user_id (str):          The id of the Plex user
 
             Optional parameters:
-                None
+                grouping (int):         0 or 1
 
             Returns:
                 json:
@@ -1428,9 +1447,11 @@ class WebInterface(object):
                      ]
             ```
         """
+        grouping = int(grouping) if str(grouping).isdigit() else grouping
+
         if user_id:
             user_data = users.Users()
-            result = user_data.get_watch_time_stats(user_id=user_id)
+            result = user_data.get_watch_time_stats(user_id=user_id, grouping=grouping)
             if result:
                 return result
             else:
@@ -1442,7 +1463,7 @@ class WebInterface(object):
     @cherrypy.tools.json_out()
     @requireAuth(member_of("admin"))
     @addtoapi()
-    def get_user_player_stats(self, user_id=None, **kwargs):
+    def get_user_player_stats(self, user_id=None, grouping=None, **kwargs):
         """ Get a user's player statistics.
 
             ```
@@ -1450,7 +1471,7 @@ class WebInterface(object):
                 user_id (str):          The id of the Plex user
 
             Optional parameters:
-                None
+                grouping (int):         0 or 1
 
             Returns:
                 json:
@@ -1469,9 +1490,11 @@ class WebInterface(object):
                      ]
             ```
         """
+        grouping = int(grouping) if str(grouping).isdigit() else grouping
+
         if user_id:
             user_data = users.Users()
-            result = user_data.get_player_stats(user_id=user_id)
+            result = user_data.get_player_stats(user_id=user_id, grouping=grouping)
             if result:
                 return result
             else:
@@ -1614,6 +1637,7 @@ class WebInterface(object):
                           "full_title": "Game of Thrones - The Red Woman",
                           "grandparent_rating_key": 351,
                           "grandparent_title": "Game of Thrones",
+                          "original_title": "",
                           "group_count": 1,
                           "group_ids": "1124",
                           "id": 1124,
@@ -1745,6 +1769,7 @@ class WebInterface(object):
                      "optimized_version": "",
                      "optimized_version_profile": "",
                      "optimized_version_title": "",
+                     "original_title": "",
                      "pre_tautulli": "",
                      "quality_profile": "1.5 Mbps 480p",
                      "stream_audio_bitrate": 203,
@@ -2778,6 +2803,7 @@ class WebInterface(object):
             "pms_url_manual": checked(plexpy.CONFIG.PMS_URL_MANUAL),
             "pms_uuid": plexpy.CONFIG.PMS_UUID,
             "pms_web_url": plexpy.CONFIG.PMS_WEB_URL,
+            "pms_name": plexpy.CONFIG.PMS_NAME,
             "date_format": plexpy.CONFIG.DATE_FORMAT,
             "time_format": plexpy.CONFIG.TIME_FORMAT,
             "week_start_monday": checked(plexpy.CONFIG.WEEK_START_MONDAY),
@@ -2829,7 +2855,8 @@ class WebInterface(object):
             "newsletter_auth": plexpy.CONFIG.NEWSLETTER_AUTH,
             "newsletter_password": plexpy.CONFIG.NEWSLETTER_PASSWORD,
             "newsletter_inline_styles": checked(plexpy.CONFIG.NEWSLETTER_INLINE_STYLES),
-            "newsletter_custom_dir": plexpy.CONFIG.NEWSLETTER_CUSTOM_DIR
+            "newsletter_custom_dir": plexpy.CONFIG.NEWSLETTER_CUSTOM_DIR,
+            "win_sys_tray": checked(plexpy.CONFIG.WIN_SYS_TRAY)
         }
 
         return serve_template(templatename="settings.html", title="Settings", config=config, kwargs=kwargs)
@@ -2851,7 +2878,7 @@ class WebInterface(object):
             "allow_guest_access", "cache_images", "http_proxy", "http_basic_auth", "notify_concurrent_by_ip",
             "history_table_activity", "plexpy_auto_update",
             "themoviedb_lookup", "tvmaze_lookup", "http_plex_admin",
-            "newsletter_self_hosted", "newsletter_inline_styles"
+            "newsletter_self_hosted", "newsletter_inline_styles", "win_sys_tray"
         ]
         for checked_config in checked_configs:
             if checked_config not in kwargs:
@@ -3222,7 +3249,7 @@ class WebInterface(object):
     @requireAuth(member_of("admin"))
     @addtoapi()
     def set_notifier_config(self, notifier_id=None, agent_id=None, **kwargs):
-        """ Configure an exisitng notificaiton agent.
+        """ Configure an existing notification agent.
 
             ```
             Required parameters:
@@ -3341,10 +3368,10 @@ class WebInterface(object):
                 return {'result': 'success', 'message': 'Notification queued.'}
             else:
                 logger.debug(u"Unable to send %snotification, invalid notifier_id %s." % (test, notifier_id))
-                return {'result': 'success', 'message': 'Invalid notifier id %s.' % notifier_id}
+                return {'result': 'error', 'message': 'Invalid notifier id %s.' % notifier_id}
         else:
             logger.debug(u"Unable to send %snotification, no notifier_id received." % test)
-            return {'result': 'success', 'message': 'No notifier id received.'}
+            return {'result': 'error', 'message': 'No notifier id received.'}
 
     @cherrypy.expose
     @cherrypy.tools.json_out()
@@ -3481,7 +3508,7 @@ class WebInterface(object):
     @requireAuth(member_of("admin"))
     @addtoapi()
     def set_mobile_device_config(self, mobile_device_id=None, **kwargs):
-        """ Configure an exisitng notificaiton agent.
+        """ Configure an existing notification agent.
 
             ```
             Required parameters:
@@ -3776,16 +3803,15 @@ class WebInterface(object):
                     }
             ```
         """
-        versioncheck.check_github()
+        versioncheck.check_update()
 
-        if not plexpy.CURRENT_VERSION:
+        if plexpy.UPDATE_AVAILABLE is None:
             return {'result': 'error',
                     'update': None,
                     'message': 'You are running an unknown version of Tautulli.'
                     }
 
-        elif plexpy.COMMITS_BEHIND > 0 and plexpy.common.BRANCH in ('master', 'beta') and \
-                plexpy.common.RELEASE != plexpy.LATEST_RELEASE:
+        elif plexpy.UPDATE_AVAILABLE == 'release':
             return {'result': 'success',
                     'update': True,
                     'release': True,
@@ -3798,8 +3824,7 @@ class WebInterface(object):
                            plexpy.LATEST_RELEASE))
                     }
 
-        elif plexpy.COMMITS_BEHIND > 0 and plexpy.CURRENT_VERSION != plexpy.LATEST_VERSION and \
-                plexpy.INSTALL_TYPE != 'win':
+        elif plexpy.UPDATE_AVAILABLE == 'commit':
             return {'result': 'success',
                     'update': True,
                     'release': False,
@@ -4006,7 +4031,7 @@ class WebInterface(object):
         return self.real_pms_image_proxy(**kwargs)
 
     @addtoapi('pms_image_proxy')
-    def real_pms_image_proxy(self, img='', rating_key=None, width=0, height=0,
+    def real_pms_image_proxy(self, img=None, rating_key=None, width=750, height=1000,
                              opacity=100, background='000000', blur=0, img_format='png',
                              fallback=None, refresh=False, clip=False, **kwargs):
         """ Gets an image from the PMS and saves it to the image cache directory.
@@ -4026,6 +4051,7 @@ class WebInterface(object):
                 img_format (str):       png
                 fallback (str):         "poster", "cover", "art"
                 refresh (bool):         True or False whether to refresh the image cache
+                return_hash (bool):     True or False to return the self-hosted image hash instead of the image
 
             Returns:
                 None
@@ -4034,6 +4060,8 @@ class WebInterface(object):
         if not img and not rating_key:
             logger.warn('No image input received.')
             return
+
+        return_hash = (kwargs.get('return_hash') == 'true')
 
         if rating_key and not img:
             if fallback == 'art':
@@ -4045,9 +4073,13 @@ class WebInterface(object):
         img = '/'.join(img_split[:5])
         rating_key = rating_key or img_split[3]
 
-        img_string = '{}.{}.{}.{}.{}.{}.{}.{}'.format(
-            plexpy.CONFIG.PMS_UUID, img, rating_key, width, height, opacity, background, blur, fallback)
-        img_hash = hashlib.sha256(img_string).hexdigest()
+        img_hash = notification_handler.set_hash_image_info(
+            img=img, rating_key=rating_key, width=width, height=height,
+            opacity=opacity, background=background, blur=blur, fallback=fallback,
+            add_to_db=return_hash)
+
+        if return_hash:
+            return {'img_hash': img_hash}
 
         fp = '{}.{}'.format(img_hash, img_format)  # we want to be able to preview the thumbs
         c_dir = os.path.join(plexpy.CONFIG.CACHE_DIR, 'images')
@@ -4536,6 +4568,7 @@ class WebInterface(object):
                      "added_at": "1461572396",
                      "art": "/library/metadata/1219/art/1462175063",
                      "audience_rating": "8",
+                     "audience_rating_image": "rottentomatoes://image.rating.upright",
                      "banner": "/library/metadata/1219/banner/1462175063",
                      "collections": [],
                      "content_rating": "TV-MA",
@@ -4589,7 +4622,8 @@ class WebInterface(object):
                                              "video_language_code": "",
                                              "video_profile": "high",
                                              "video_ref_frames": "4",
-                                             "video_width": "1920"
+                                             "video_width": "1920",
+                                             "selected": 0
                                          },
                                          {
                                              "audio_bitrate": "384",
@@ -4602,7 +4636,8 @@ class WebInterface(object):
                                              "audio_profile": "",
                                              "audio_sample_rate": "48000",
                                              "id": "511664",
-                                             "type": "2"
+                                             "type": "2",
+                                             "selected": 1
                                          },
                                          {
                                              "id": "511953",
@@ -4613,7 +4648,8 @@ class WebInterface(object):
                                              "subtitle_language": "English",
                                              "subtitle_language_code": "eng",
                                              "subtitle_location": "external",
-                                             "type": "3"
+                                             "type": "3",
+                                             "selected": 1
                                          }
                                      ]
                                  }
@@ -4626,12 +4662,14 @@ class WebInterface(object):
                          }
                      ],
                      "media_type": "episode",
+                     "original_title": "",
                      "originally_available_at": "2016-04-24",
                      "parent_media_index": "6",
                      "parent_rating_key": "153036",
                      "parent_thumb": "/library/metadata/153036/thumb/1462175062",
                      "parent_title": "",
                      "rating": "7.8",
+                     "rating_image": "rottentomatoes://image.rating.ripe",
                      "rating_key": "153037",
                      "section_id": "2",
                      "sort_title": "Game of Thrones",
@@ -4684,6 +4722,7 @@ class WebInterface(object):
                           "library_name": "",
                           "media_index": "1",
                           "media_type": "episode",
+                          "original_title": "",
                           "parent_media_index": "6",
                           "parent_rating_key": "153036",
                           "parent_thumb": "/library/metadata/153036/thumb/1462175062",
@@ -4867,7 +4906,7 @@ class WebInterface(object):
     @cherrypy.tools.json_out()
     @requireAuth()
     @addtoapi()
-    def get_activity(self, session_key=None, **kwargs):
+    def get_activity(self, session_key=None, session_id=None, **kwargs):
         """ Get the current activity on the PMS.
 
             ```
@@ -4875,7 +4914,8 @@ class WebInterface(object):
                 None
 
             Optional parameters:
-                None
+                session_key (int):    Session key for the session info to return, OR
+                session_id (str):     Session ID for the session info to return
 
             Returns:
                 json:
@@ -4894,6 +4934,7 @@ class WebInterface(object):
                              "art": "/library/metadata/1219/art/1503306930",
                              "aspect_ratio": "1.78",
                              "audience_rating": "",
+                             "audience_rating_image": "rottentomatoes://image.rating.upright",
                              "audio_bitrate": "384",
                              "audio_bitrate_mode": "",
                              "audio_channel_layout": "5.1(side)",
@@ -4955,6 +4996,7 @@ class WebInterface(object):
                              "optimized_version_profile": "",
                              "optimized_version_title": "",
                              "originally_available_at": "2016-04-24",
+                             "original_title": "",
                              "parent_media_index": "6",
                              "parent_rating_key": "153036",
                              "parent_thumb": "/library/metadata/153036/thumb/1503889210",
@@ -4969,6 +5011,7 @@ class WebInterface(object):
                              "progress_percent": "0",
                              "quality_profile": "Original",
                              "rating": "7.8",
+                             "rating_image": "rottentomatoes://image.rating.ripe",
                              "rating_key": "153037",
                              "relay": 0,
                              "section_id": "2",
@@ -5103,6 +5146,8 @@ class WebInterface(object):
             if result:
                 if session_key:
                     return next((s for s in result['sessions'] if s['session_key'] == session_key), {})
+                if session_id:
+                    return next((s for s in result['sessions'] if s['session_id'] == session_id), {})
 
                 counts = {'stream_count_direct_play': 0,
                           'stream_count_direct_stream': 0,
@@ -5187,15 +5232,21 @@ class WebInterface(object):
 
             Returns:
                 json:
-                    [{"email": "Jon.Snow.1337@CastleBlack.com",
+                    [{"allow_guest": 1,
+                      "do_notify": 1,
+                      "email": "Jon.Snow.1337@CastleBlack.com",
                       "filter_all": "",
                       "filter_movies": "",
                       "filter_music": "",
                       "filter_photos": "",
                       "filter_tv": "",
-                      "is_allow_sync": null,
-                      "is_home_user": "1",
-                      "is_restricted": "0",
+                      "is_admin": 0,
+                      "is_allow_sync": 1,
+                      "is_home_user": 1,
+                      "is_restricted": 0,
+                      "keep_history": 1,
+                      "server_token": "PU9cMuQZxJKFBtGqHk68",
+                      "shared_libraries": "1;2;3",
                       "thumb": "https://plex.tv/users/k10w42309cynaopq/avatar",
                       "user_id": "133788",
                       "username": "Jon Snow"
@@ -5205,8 +5256,8 @@ class WebInterface(object):
                      ]
             ```
         """
-        plex_tv = plextv.PlexTV()
-        result = plex_tv.get_full_users_list()
+        user_data = users.Users()
+        result = user_data.get_users()
 
         if result:
             return result
@@ -5678,7 +5729,7 @@ class WebInterface(object):
     @requireAuth(member_of("admin"))
     @addtoapi()
     def set_newsletter_config(self, newsletter_id=None, agent_id=None, **kwargs):
-        """ Configure an exisitng newsletter agent.
+        """ Configure an existing newsletter agent.
 
             ```
             Required parameters:
@@ -5826,3 +5877,8 @@ class WebInterface(object):
 
         logger.error(u"Failed to retrieve newsletter: Missing newsletter_id parameter.")
         return "Failed to retrieve newsletter: missing newsletter_id parameter"
+
+    @cherrypy.expose
+    @requireAuth()
+    def support(self, query='', **kwargs):
+        return serve_template(templatename="support.html", title="Support")

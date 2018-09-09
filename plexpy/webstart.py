@@ -67,6 +67,10 @@ def initialize(options):
     else:
         protocol = "http"
 
+    if options['http_proxy']:
+        # Overwrite cherrypy.tools.proxy with our own proxy handler
+        cherrypy.tools.proxy = cherrypy.Tool('before_handler', proxy)
+
     if options['http_password']:
         login_allowed = ["Tautulli admin (username is '%s')" % options['http_username']]
         if plexpy.CONFIG.HTTP_PLEX_ADMIN:
@@ -94,7 +98,7 @@ def initialize(options):
     conf = {
         '/': {
             'tools.staticdir.root': os.path.join(plexpy.PROG_DIR, 'data'),
-            'tools.proxy.on': options['http_proxy'],  # pay attention to X-Forwarded-Proto header
+            'tools.proxy.on': bool(options['http_proxy']),
             'tools.gzip.on': True,
             'tools.gzip.mime_types': ['text/html', 'text/plain', 'text/css',
                                       'text/javascript', 'application/json',
@@ -202,6 +206,8 @@ def initialize(options):
     # Prevent time-outs
     cherrypy.engine.timeout_monitor.unsubscribe()
     cherrypy.tree.mount(WebInterface(), options['http_root'], config=conf)
+    if plexpy.HTTP_ROOT != '/':
+        cherrypy.tree.mount(BaseRedirect(), '/')
 
     try:
         logger.info(u"Tautulli WebStart :: Starting Tautulli web server on %s://%s:%d%s", protocol,
@@ -218,3 +224,32 @@ def initialize(options):
         sys.exit(1)
 
     cherrypy.server.wait()
+
+
+class BaseRedirect(object):
+    @cherrypy.expose
+    def index(self):
+        raise cherrypy.HTTPRedirect(plexpy.HTTP_ROOT)
+
+
+def proxy():
+    # logger.debug(u"REQUEST URI: %s, HEADER [X-Forwarded-Host]: %s, [X-Host]: %s, [Origin]: %s, [Host]: %s",
+    #              cherrypy.request.wsgi_environ['REQUEST_URI'],
+    #              cherrypy.request.headers.get('X-Forwarded-Host'),
+    #              cherrypy.request.headers.get('X-Host'),
+    #              cherrypy.request.headers.get('Origin'),
+    #              cherrypy.request.headers.get('Host'))
+
+    # Change cherrpy.tools.proxy.local header if X-Forwarded-Host header is not present
+    local = 'X-Forwarded-Host'
+    if not cherrypy.request.headers.get('X-Forwarded-Host'):
+        if cherrypy.request.headers.get('X-Host'):  # lighttpd
+            local = 'X-Host'
+        elif cherrypy.request.headers.get('Origin'):  # Squid
+            local = 'Origin'
+        elif cherrypy.request.headers.get('Host'):  # nginx
+            local = 'Host'
+        # logger.debug(u"cherrypy.tools.proxy.local set to [%s]", local)
+
+    # Call original cherrypy proxy tool with the new local
+    cherrypy.lib.cptools.proxy(local=local)

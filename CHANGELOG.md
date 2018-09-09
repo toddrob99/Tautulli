@@ -1,5 +1,173 @@
 # Changelog
 
+## v2.1.20 (2018-09-05)
+* No changes.
+
+
+## v2.1.20-beta (2018-09-02)
+
+* Monitoring:
+  * Fix: Fetch messing season info when "Hide Seasons" is enabled for a show.
+  * Fix: Video and Audio details sometimes missing on activity cards.
+* Notifications:
+  * New: Added UTC timestamp to notification parameters. (Thanks @samwiseg00)
+  * New: Added TAUTULLI_PUBLIC_URL to script environment variables. (Thanks @samwiseg00)
+* UI:
+  * Change: Automatically redirect '/' to HTTP root if enabled.
+* API:
+  * New: Added return_hash parameter to pms_image_proxy command.
+  * New: Added session_id parameter to get_activity command.
+* Other:
+  * Change: Linux systemd startup script to use the "tautulli" group permission. (Thanks @samwiseg00)
+
+
+## v2.1.19-beta (2018-08-19)
+
+* Notifications:
+  * New: Added Webhook notification agent.
+  * Fix: Scripts failing due to unicode characters in substituted script arguments.
+  * Change: Ability to override PYTHONPATH for scripts.
+  * Remove: Notify My Android notification agent.
+* Newsletters:
+  * New: Added option for threaded newsletter emails.
+  * Fix: Missing space in newsletter format.
+* UI:
+  * New: Added Windows system tray icon.
+  * Fix: Plex OAuth not working with Plex remote access disabled. (Thanks @samwiseg00)
+* API:
+  * Fix: SQL command creating a database backup every time. (Thanks @samwiseg00)
+
+
+## v2.1.18 (2018-07-27)
+
+* Monitoring:
+  * Fix: Progress bar on activity cards showing incorrect 100% when starting a stream.
+* Notifications:
+  * Fix: Notification text boxes scrolling to top when inputting text.
+  * Change: Skip formatting invalid notification parameters instead of returning default text.
+* UI:
+  * Fix: Padding around search bar causing the navigation bar to break on smaller screens.
+
+
+## v2.1.17-beta (2018-07-22)
+
+* Notifications:
+  * Change: Use default selected stream for media info in notifications.
+* UI:
+  * New: Automatically discover localhost Plex servers in server selection dropdown.
+  * Change: Save Datatables state indefinitely.
+
+
+## v2.1.16-beta (2018-07-06)
+
+* Monitoring:
+  * Fix: Plex server not detected as down during sudden network loss.
+* Notifications:
+  * Fix: Incorrect rounding of percentages in some cases.
+  * Fix: Incorrect stream duration value for playback start notifications.
+  * New: Added critic rating parameter for Rotten Tomatoes ratings.
+* Newsletters:
+  * Fix: Typo in "seasons" when there is only one additional season.
+* UI:
+  * New: Added ability to use Plex OAuth to login to Tautulli.
+* API:
+  * Fix: Unicode characters causing get_logs command to return bad data.
+  * New: Added rating_image and audience_rating_image to get_activity and get_metadata commands.
+
+
+## v2.1.15-beta (2018-07-01)
+
+* Monitoring:
+  * Fix: Progress percent displaying NaN for live TV.
+  * Fix: Unable to terminate sessions with unicode characters in the message.
+  * Change: Tizen platform to display the Samsung icon.
+* Notifications:
+  * New: Added PYTHONPATH to script environment variables so scripts can automatically import from Tautulli libraries.
+  * Fix: Proper handling of unicode script arguments.
+  * Fix: Incorrect TAUTULLI_URL environment variable if the HTTP host setting is changed.
+  * Fix: Email addresses selectize box not expanding.
+* Newsletters:
+  * Change: HTTPS URLS for images hosted on tautulli.com.
+* Graphs:
+  * Fix: SD resolution sometimes not grouped together.
+
+
+## v2.1.14 (2018-06-21)
+
+* Notifications:
+  * Fix: Parsing script arguments in quotes.
+* UI:
+  * Fix: Slow loading due to Font Awesome 5 javascript.
+  * Change: Play counts on user an library pages now respect the history grouping setting.
+* API:
+  * New: Added optional grouping parameter to user and library watch statistics.
+
+
+## v2.1.13 (2018-06-16)
+
+* Monitoring:
+  * Fix: Soft crash when viewing photos not in an album.
+* Notifications:
+  * New: Added current date and time notification parameters.
+* UI:
+  * New: Added support page with embedded Discord chat using WidgetBot.
+
+
+## v2.1.12 (2018-06-08)
+
+* Notifications:
+  * Change: Blank notification link source means disabled instead of default.
+* Newsletters:
+  * New: Make collection tags available in the raw newsletter data for custom templates.
+* API:
+  * New: Ability to terminate a stream using the session key.
+
+
+## v2.1.11-beta (2018-06-02)
+
+* Monitoring:
+  * Fix: Activity progress bar not updating in some cases.
+  * Fix: Monitory Remote Access setting disabled due to Plex Media Server API changes.
+  * Change: Improved logic for grouping history items without being successive plays.
+* Notifications:
+  * New: Added filename to notification parameters.
+* Other:
+  * Fix: Update metadata failing for tracks without track numbers.
+
+
+## v2.1.10-beta (2018-05-28)
+
+* Monitoring:
+  * Fix: Improved monitoring of live tv sessions.
+  * Change: Use track artist instead of album artist.
+* Notifications:
+  * New: Added timestamp to Discord notification embeds. (Thanks @samwiseg00)
+  * New: Enable notifications for "clip" media types.
+  * Fix: Actually add the "live" notification parameter.
+  * Change: Update Twitter for 280 characters.
+  * Change: Use HTTPS url for Cloudinary images.
+* Newsletters:
+  * Fix: Artist summaries not showing up on newsletter cards.
+  * Change: Do not send the newsletter if the template fails to render.
+
+
+## v2.1.9 (2018-05-21)
+
+* Notifications:
+  * New: Added "live" to notification parameters.
+
+
+## v2.1.8-beta (2018-05-19)
+
+* Newsletters:
+  * New: Added authentication options for self-hosted newsletters.
+  * Change: Check if the Tautulli footer has been removed in custom newsletter templates.
+* Notifications:
+  * Fix: Cloudinary images not working for Twitter notifications.
+* API:
+  * Fix: Return proper HTTP status codes for errors.
+
+
 ## v2.1.7-beta (2018-05-13)
 
 * Newsletters:

@@ -12,7 +12,7 @@
     <div class="row">
         <div class="col-md-12">
             <div class="padded-header" id="current-activity-header">
-                <h3><span id="sessions-shortcut">Activity</span> &nbsp;&nbsp;
+                <h3><span id="sessions-xml">Activity</span> &nbsp;&nbsp;
                     <small>
                         <span id="currentActivityHeader" style="display: none;">
                             Streams: <span id="currentActivityHeader-streams"></span> |
@@ -100,7 +100,7 @@
     <div class="row">
         <div class="col-md-12">
             <div class="home-padded-header padded-header">
-                <h3 class="pull-left">Recently Added</h3>
+                <h3 class="pull-left"><span id="recently-added-xml">Recently Added</span></h3>
                 <ul class="nav nav-header nav-dashboard pull-right" style="margin-top: -3px;">
                     <li>
                         <a href="#" id="recently-added-page-left" class="paginate btn-gray disabled" data-id="+1"><i class="fa fa-lg fa-chevron-left"></i></a>
@@ -169,6 +169,7 @@
             <div class="modal-body">
             </div>
             <div class="modal-footer">
+                <button type="button" class="btn btn-danger" data-target="#donate-modal" data-toggle="modal" style="float: left;"><i class="fa fa-fw fa-heart"></i> Donate</button>
                 <input type="button" class="btn btn-bright" data-dismiss="modal" value="Close">
             </div>
         </div>
@@ -236,7 +237,6 @@
 <script src="${http_root}js/moment-with-locale.js"></script>
 <script src="${http_root}js/jquery.scrollbar.min.js"></script>
 <script src="${http_root}js/jquery.mousewheel.min.js"></script>
-<script src="${http_root}js/jquery.tripleclick.min.js"></script>
 <script>
     var date_format = 'YYYY-MM-DD';
     var time_format = 'hh:mm a';
@@ -390,8 +390,8 @@
                                 $('#background-' + key).css('background-image', 'url(pms_image_proxy?img=' + s.art + '&width=500&height=280&opacity=40&background=282828&blur=3&fallback=art&refresh=true)');
                                 $('#metadata-grandparent_title-' + key)
                                     .attr('href', 'info?rating_key=' + s.grandparent_rating_key)
-                                    .attr('title', s.grandparent_title)
-                                    .text(s.grandparent_title);
+                                    .attr('title', s.original_title || s.grandparent_title)
+                                    .text(s.original_title || s.grandparent_title);
                             }
                             // Update cover if album changed
                             if (s.parent_rating_key !== instance.data('parent_rating_key')) {
@@ -406,7 +406,11 @@
                                     .text(s.parent_title);
                             }
                             // Update cover if track changed
-                            if (s.parent_rating_key !== instance.data('parent_rating_key')) {
+                            if (s.rating_key !== instance.data('rating_key')) {
+                                $('#metadata-grandparent_title-' + key)
+                                    .attr('href', 'info?rating_key=' + s.grandparent_rating_key)
+                                    .attr('title', s.original_title || s.grandparent_title)
+                                    .text(s.original_title || s.grandparent_title);
                                 $('#metadata-title-' + key)
                                     .attr('href', 'info?rating_key=' + s.rating_key)
                                     .attr('title', s.title)
@@ -435,7 +439,7 @@
                         $('#transcode_container-' + key).html(transcode_container);
 
                         var video_decision = '';
-                        if (['movie', 'episode', 'clip'].indexOf(s.media_type) > -1 && s.video_decision !== '') {
+                        if (['movie', 'episode', 'clip'].indexOf(s.media_type) > -1 && s.stream_video_decision) {
                             var v_res= '';
                             switch (s.video_resolution.toLowerCase()) {
                                 case 'sd':
@@ -473,7 +477,7 @@
                         $('#video_decision-' + key).html(video_decision);
 
                         var audio_decision = '';
-                        if (['movie', 'episode', 'clip', 'track'].indexOf(s.media_type) > -1 && s.audio_decision) {
+                        if (['movie', 'episode', 'clip', 'track'].indexOf(s.media_type) > -1 && s.stream_audio_decision) {
                             var a_codec = (s.audio_codec === 'truehd') ? 'TrueHD' : s.audio_codec.toUpperCase();
                             var sa_codec = (s.stream_audio_codec === 'truehd') ? 'TrueHD' : s.stream_audio_codec.toUpperCase();
                             if (s.stream_audio_decision === 'transcode') {
@@ -527,7 +531,7 @@
                                 bw = bw + ' kbps'
                             }
                             $('#stream-bandwidth-' + key).html(bw);
-                        };
+                        }
 
                         // Update the stream progress times
                         $('#stream-eta-' + key).html(moment().add(parseInt(s.duration) - parseInt(s.view_offset), 'milliseconds').format(time_format));
@@ -542,7 +546,7 @@
                             .attr('data-original-title', 'Transcoder Progress ' + s.transcode_progress + '%');
                         var progress_bar = $('#progress-bar-' + key);
                         progress_bar.data('state', s.state);
-                        if (progress_bar.data('last_view_offset') && progress_bar.data('last_view_offset') !== s.view_offset) {
+                        if (progress_bar.data('last_view_offset') !== s.view_offset) {
                             progress_bar.data('last_view_offset', s.view_offset).data('view_offset', s.view_offset);
                         }
 
@@ -614,7 +618,8 @@
             if ($(this).data('state') === 'playing' && $(this).data('view_offset') >= 0) {
                 var view_offset = parseInt($(this).data('view_offset'));
                 var stream_duration = parseInt($(this).data('stream_duration'));
-                var progress_percent = Math.min(Math.trunc(view_offset / stream_duration * 100), 100);
+                var progress_percent = Math.floor(view_offset / stream_duration * 100);
+                progress_percent = (progress_percent >= 0) ? Math.min(progress_percent, 100) : 100;
                 $(this).width(progress_percent - 3 + '%').html(progress_percent + '%')
                     .attr('data-original-title', 'Stream Progress ' + progress_percent + '%')
                     .data('view_offset', Math.min(view_offset + 1000, stream_duration));
@@ -672,6 +677,7 @@
             $.ajax({
                 url: 'terminate_session',
                 data: {
+                    session_key: key,
                     session_id: session_id,
                     message: message
                 },
@@ -690,10 +696,8 @@
         });
     });
 
-    $('#sessions-shortcut').on('tripleclick', function () {
-        $.getJSON('return_sessions_url', function(sessions_url) {
-           window.open(sessions_url, '_blank');
-        });
+    $('#sessions-xml').on('tripleclick', function () {
+        openPlexXML('/status/sessions');
     });
     % endif
 </script>
@@ -843,6 +847,10 @@
     });
 
     $('#recently-added-count').tooltip({ container: 'body', placement: 'top', html: true });
+
+    $('#recently-added-xml').on('tripleclick', function () {
+        openPlexXML('/library/recentlyAdded', false, {'X-Plex-Container-Start': 0, 'X-Plex-Container-Size': recently_added_count});
+    });
 </script>
 % endif
 % if _session['user_group'] == 'admin' and config['update_show_changelog']:
