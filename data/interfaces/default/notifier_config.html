@@ -1,9 +1,9 @@
 % if notifier:
-<%!
+<%
     import json
     from plexpy import notifiers, users
     from plexpy.helpers import checked
-    available_notification_actions = notifiers.available_notification_actions()
+    available_notification_actions = notifiers.available_notification_actions(agent_id=notifier['agent_id'])
 
     user_emails = [{'user': u['friendly_name'] or u['username'], 'email': u['email']} for u in users.Users().get_users() if u['email']]
     sorted(user_emails, key=lambda u: u['user'])
@@ -25,7 +25,7 @@
                         <li role="presentation"><a href="#tabs-notify_text" aria-controls="tabs-notify_text" role="tab" data-toggle="tab">Arguments</a></li>
                         % elif notifier['agent_name'] == 'webhook':
                         <li role="presentation"><a href="#tabs-notify_text" aria-controls="tabs-notify_text" role="tab" data-toggle="tab">Data</a></li>
-                        % else:
+                        % elif notifier['agent_name'] != 'plexmobileapp':
                         <li role="presentation"><a href="#tabs-notify_text" aria-controls="tabs-notify_text" role="tab" data-toggle="tab">Text</a></li>
                         % endif
                         <li role="presentation"><a href="#tabs-test_notifications" aria-controls="tabs-test_notifications" role="tab" data-toggle="tab">Test Notifications</a></li>
@@ -88,7 +88,7 @@
                                         <div class="row">
                                             <div class="col-md-12">
                                                 <select class="form-control" id="${item['name']}" name="${item['name']}">
-                                                    % for key, value in sorted(item['select_options'].iteritems()):
+                                                    % for key, value in sorted(item['select_options'].items()):
                                                     % if key == item['value']:
                                                     <option value="${key}" selected>${value}</option>
                                                     % else:
@@ -109,7 +109,7 @@
                                                     <option value="select-all">Select All</option>
                                                     <option value="remove-all">Remove All</option>
                                                     % if isinstance(item['select_options'], dict):
-                                                    % for section, options in item['select_options'].iteritems():
+                                                    % for section, options in item['select_options'].items():
                                                     <optgroup label="${section}">
                                                         % for option in sorted(options, key=lambda x: x['text'].lower()):
                                                             <option value="${option['value']}">${option['text']}</option>
@@ -148,7 +148,7 @@
                                 <div class="col-md-12">
                                     <label>Notification Triggers</label>
                                     <p class="help-block">
-                                        Select items that will trigger a notification for this ${notifier['agent_label']} notifiation agent.
+                                        Select items that will trigger a notification for this ${notifier['agent_label']} notification agent.
                                     </p>
                                     % for action in available_notification_actions:
                                     <div class="checkbox">
@@ -211,7 +211,7 @@
                                 % for action in available_notification_actions:
                                 <li>
                                     <div class="link">
-                                        <span class="toggle-left"><i class="fa ${action['icon']} fa-fw"></i></span>&nbsp;
+                                        <span class="toggle-left"><i class="fa ${action['icon']} fa-fw"></i></span>
                                         ${action['label']}
                                         <span class="toggle-right"><i class="fa fa-chevron-down"></i></span>
                                     </div>
@@ -237,12 +237,17 @@
                                 % for action in available_notification_actions:
                                 <li>
                                     <div class="link">
-                                        <span class="toggle-left"><i class="fa ${action['icon']} fa-fw"></i></span>&nbsp;
+                                        <span class="toggle-left"><i class="fa ${action['icon']} fa-fw"></i></span>
                                         ${action['label']}
                                         <span class="toggle-right"><i class="fa fa-chevron-down"></i></span>
                                     </div>
                                     <ul class="submenu">
                                         <li>
+                                            <div class="form-group">
+                                                <label for="${action['name']}_subject">JSON Headers</label>
+                                                <textarea class="form-control" id="${action['name']}_subject" name="${action['name']}_subject" data-parsley-trigger="change" data-autoresize required>${notifier['notify_text'][action['name']]['subject']}</textarea>
+                                                <p class="help-block">Set custom JSON headers.</p>
+                                            </div>
                                             <div class="form-group">
                                                 <label for="${action['name']}_body">JSON Data</label>
                                                 <textarea class="form-control" id="${action['name']}_body" name="${action['name']}_body" data-parsley-trigger="change" data-autoresize required>${notifier['notify_text'][action['name']]['body']}</textarea>
@@ -263,7 +268,7 @@
                                 % for action in available_notification_actions:
                                 <li>
                                     <div class="link">
-                                        <span class="toggle-left"><i class="fa ${action['icon']} fa-fw"></i></span>&nbsp;
+                                        <span class="toggle-left"><i class="fa ${action['icon']} fa-fw"></i></span>
                                         ${action['label']}
                                         <span class="toggle-right"><i class="fa fa-chevron-down"></i></span>
                                     </div>
@@ -308,7 +313,7 @@
                                 <div class="row">
                                     <div class="col-md-12">
                                         <select class="form-control" id="test_script" name="test_script">
-                                            % for key, value in sorted(notifier['config_options'][2]['select_options'].iteritems()):
+                                            % for key, value in sorted(notifier['config_options'][2]['select_options'].items()):
                                             <option value="${key}">${value}</option>
                                             % endfor
                                         </select>
@@ -326,6 +331,15 @@
                                 <p class="help-block">Set custom arguments passed to the script.</p>
                             </div>
                             % elif notifier['agent_name'] == 'webhook':
+                            <div class="form-group">
+                                <label for="test_subject">JSON Headers</label>
+                                <div class="row">
+                                    <div class="col-md-12">
+                                        <textarea class="form-control" id="test_subject" name="test_subject" data-autoresize></textarea>
+                                    </div>
+                                </div>
+                                <p class="help-block">Set custom JSON headers sent to the webhook.</p>
+                            </div>
                             <div class="form-group">
                                 <label for="test_body">JSON Data</label>
                                 <div class="row">
@@ -471,7 +485,7 @@
             '<div class="form-group">' +
             '<label>Warning</label>' +
             '<p class="help-block" style="color: #eb8600;">Facebook requires HTTPS for authorization. ' +
-            'Please enable HTTPS for Tautulli under <a data-tab-destination="tabs-web_interface" data-dismiss="modal" data-target="#enable_https">Web Interface</a>.</p>' +
+            'Please enable HTTPS for Tautulli under <a data-tab-destination="web_interface" data-dismiss="modal" data-target="enable_https">Web Interface</a>.</p>' +
             '</div>'
         );
         $('#facebook_redirect_uri').val('HTTPS not enabled');
@@ -566,6 +580,7 @@
     var $email_selectors = $('#email_to, #email_cc, #email_bcc').selectize({
         plugins: ['remove_button'],
         maxItems: null,
+        searchField: ['text', 'value'],
         render: {
             item: function(item, escape) {
                 return '<div>' +
@@ -668,6 +683,15 @@
     $('#pushover_priority').change( function () {
         pushoverPriority();
     });
+
+    % elif notifier['agent_name'] == 'plexmobileapp':
+    var $plexmobileapp_user_ids = $('#plexmobileapp_user_ids').selectize({
+        plugins: ['remove_button'],
+        maxItems: null,
+        create: true
+    });
+    var plexmobileapp_user_ids = $plexmobileapp_user_ids[0].selectize;
+    plexmobileapp_user_ids.setValue(${json.dumps(next((c['value'] for c in notifier['config_options'] if c['name'] == 'plexmobileapp_user_ids'), [])) | n});
 
     % endif
 
@@ -829,10 +853,8 @@
                 PNotify.prototype.options.hide = true;
                 PNotify.prototype.options.delay = $('#browser_auto_hide_delay').val() * 1000;
             }
-            var notification = new PNotify({
-                title: $('#test_subject').val(),
-                text: $('#test_body').val()
-            });
+            displayPNotify($('#test_subject').val(), $('#test_body').val());
+            showMsg('<i class="fa fa-check"></i> Notification sent.', false, true, 5000);
         }
     }
 

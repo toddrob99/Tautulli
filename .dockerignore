@@ -1,0 +1,10 @@
+.git
+.github
+.gitignore
+contrib
+init-scripts
+package
+pylintrc
+*.md
+!CHANGELOG*.md
+start.bat

@@ -1,4 +1,6 @@
-﻿# This file is part of Tautulli.
+﻿# -*- coding: utf-8 -*-
+
+# This file is part of Tautulli.
 #
 #  Tautulli is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -13,16 +15,25 @@
 #  You should have received a copy of the GNU General Public License
 #  along with Tautulli.  If not, see <http://www.gnu.org/licenses/>.
 
+from __future__ import unicode_literals
+from future.builtins import str
+
 import sqlite3
 from xml.dom import minidom
 
 import plexpy
-import activity_pinger
-import activity_processor
-import database
-import helpers
-import logger
-import users
+if plexpy.PYTHON2:
+    import activity_processor
+    import database
+    import helpers
+    import logger
+    import users
+else:
+    from plexpy import activity_processor
+    from plexpy import database
+    from plexpy import helpers
+    from plexpy import logger
+    from plexpy import users
 
 
 def extract_plexwatch_xml(xml=None):
@@ -31,12 +42,12 @@ def extract_plexwatch_xml(xml=None):
     try:
         xml_parse = minidom.parseString(clean_xml)
     except:
-        logger.warn(u"Tautulli Importer :: Error parsing XML for PlexWatch database.")
+        logger.warn("Tautulli Importer :: Error parsing XML for PlexWatch database.")
         return None
 
     xml_head = xml_parse.getElementsByTagName('opt')
     if not xml_head:
-        logger.warn(u"Tautulli Importer :: Error parsing XML for PlexWatch database.")
+        logger.warn("Tautulli Importer :: Error parsing XML for PlexWatch database.")
         return None
 
     for a in xml_head:
@@ -226,50 +237,53 @@ def extract_plexwatch_xml(xml=None):
 
     return output
 
-def validate_database(database=None, table_name=None):
+
+def validate_database(database_file=None, table_name=None):
     try:
-        connection = sqlite3.connect(database, timeout=20)
+        connection = sqlite3.connect(database_file, timeout=20)
     except sqlite3.OperationalError:
-        logger.error(u"Tautulli Importer :: Invalid database specified.")
+        logger.error("Tautulli Importer :: Invalid database specified.")
         return 'Invalid database specified.'
     except ValueError:
-        logger.error(u"Tautulli Importer :: Invalid database specified.")
+        logger.error("Tautulli Importer :: Invalid database specified.")
         return 'Invalid database specified.'
     except:
-        logger.error(u"Tautulli Importer :: Uncaught exception.")
+        logger.error("Tautulli Importer :: Uncaught exception.")
         return 'Uncaught exception.'
 
     try:
         connection.execute('SELECT ratingKey from %s' % table_name)
         connection.close()
     except sqlite3.OperationalError:
-        logger.error(u"Tautulli Importer :: Invalid database specified.")
+        logger.error("Tautulli Importer :: Invalid database specified.")
         return 'Invalid database specified.'
     except:
-        logger.error(u"Tautulli Importer :: Uncaught exception.")
+        logger.error("Tautulli Importer :: Uncaught exception.")
         return 'Uncaught exception.'
 
     return 'success'
 
-def import_from_plexwatch(database=None, table_name=None, import_ignore_interval=0):
+
+def import_from_plexwatch(database_file=None, table_name=None, import_ignore_interval=0):
 
     try:
-        connection = sqlite3.connect(database, timeout=20)
+        connection = sqlite3.connect(database_file, timeout=20)
         connection.row_factory = sqlite3.Row
     except sqlite3.OperationalError:
-        logger.error(u"Tautulli Importer :: Invalid filename.")
+        logger.error("Tautulli Importer :: Invalid filename.")
         return None
     except ValueError:
-        logger.error(u"Tautulli Importer :: Invalid filename.")
+        logger.error("Tautulli Importer :: Invalid filename.")
         return None
 
     try:
         connection.execute('SELECT ratingKey from %s' % table_name)
     except sqlite3.OperationalError:
-        logger.error(u"Tautulli Importer :: Database specified does not contain the required fields.")
+        logger.error("Tautulli Importer :: Database specified does not contain the required fields.")
         return None
 
-    logger.debug(u"Tautulli Importer :: PlexWatch data import in progress...")
+    logger.debug("Tautulli Importer :: PlexWatch data import in progress...")
+    database.set_is_importing(True)
 
     ap = activity_processor.ActivityProcessor()
     user_data = users.Users()
@@ -278,7 +292,7 @@ def import_from_plexwatch(database=None, table_name=None, import_ignore_interval
     try:
         users.refresh_users()
     except:
-        logger.debug(u"Tautulli Importer :: Unable to refresh the users list. Aborting import.")
+        logger.debug("Tautulli Importer :: Unable to refresh the users list. Aborting import.")
         return None
 
     query = 'SELECT time AS started, ' \
@@ -313,13 +327,13 @@ def import_from_plexwatch(database=None, table_name=None, import_ignore_interval
 
         # If we get back None from our xml extractor skip over the record and log error.
         if not extracted_xml:
-            logger.error(u"Tautulli Importer :: Skipping record with ratingKey %s due to malformed xml."
+            logger.error("Tautulli Importer :: Skipping record with ratingKey %s due to malformed xml."
                          % str(row['rating_key']))
             continue
 
         # Skip line if we don't have a ratingKey to work with
         if not row['rating_key']:
-            logger.error(u"Tautulli Importer :: Skipping record due to null ratingKey.")
+            logger.error("Tautulli Importer :: Skipping record due to null ratingKey.")
             continue
 
         # If the user_id no longer exists in the friends list, pull it from the xml.
@@ -423,13 +437,16 @@ def import_from_plexwatch(database=None, table_name=None, import_ignore_interval
                                      is_import=True,
                                      import_ignore_interval=import_ignore_interval)
         else:
-            logger.debug(u"Tautulli Importer :: Item has bad rating_key: %s" % session_history_metadata['rating_key'])
+            logger.debug("Tautulli Importer :: Item has bad rating_key: %s" % session_history_metadata['rating_key'])
 
-    logger.debug(u"Tautulli Importer :: PlexWatch data import complete.")
     import_users()
 
+    logger.debug("Tautulli Importer :: PlexWatch data import complete.")
+    database.set_is_importing(False)
+
+
 def import_users():
-    logger.debug(u"Tautulli Importer :: Importing PlexWatch Users...")
+    logger.debug("Tautulli Importer :: Importing PlexWatch Users...")
     monitor_db = database.MonitorDatabase()
 
     query = 'INSERT OR IGNORE INTO users (user_id, username) ' \
@@ -438,6 +455,6 @@ def import_users():
 
     try:
         monitor_db.action(query)
-        logger.debug(u"Tautulli Importer :: Users imported.")
+        logger.debug("Tautulli Importer :: Users imported.")
     except:
-        logger.debug(u"Tautulli Importer :: Failed to import users.")
+        logger.debug("Tautulli Importer :: Failed to import users.")

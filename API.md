@@ -88,7 +88,8 @@ Required parameters:
     section_id (str):       The id of the Plex library section
 
 Optional parameters:
-    None
+    server_id (str):        The Plex server identifier of the library section
+    row_ids (str):          Comma separated row ids to delete, e.g. "2,3,8"
 
 Returns:
     None
@@ -103,7 +104,7 @@ Required parameters:
     user_id (str):          The id of the Plex user
 
 Optional parameters:
-    None
+    row_ids (str):          Comma separated row ids to delete, e.g. "2,3,8"
 
 Returns:
     None
@@ -112,6 +113,21 @@ Returns:
 
 ### delete_cache
 Delete and recreate the cache directory.
+
+
+### delete_history
+Delete history rows from Tautulli.
+
+```
+Required parameters:
+    row_ids (str):          Comma separated row ids to delete, e.g. "65,110,2,3645"
+
+Optional parameters:
+    None
+
+Returns:
+    None
+```
 
 
 ### delete_hosted_images
@@ -146,7 +162,8 @@ Required parameters:
     section_id (str):       The id of the Plex library section
 
 Optional parameters:
-    None
+    server_id (str):        The Plex server identifier of the library section
+    row_ids (str):          Comma separated row ids to delete, e.g. "2,3,8"
 
 Returns:
     None
@@ -173,10 +190,13 @@ Delete the 3rd party API lookup info.
 
 ```
 Required parameters:
-    rating_key (int):       1234
-                            (Note: Must be the movie, show, or artist rating key)
-Optional parameters:
     None
+
+Optional parameters:
+    rating_key (int):       1234
+                            (Note: Must be the movie, show, artist, album, or track rating key)
+    service (str):          'themoviedb' or 'tvmaze' or 'musicbrainz'
+    delete_all (bool):      'true' to delete all images form the service
 
 Returns:
     json:
@@ -275,6 +295,10 @@ Returns:
 ```
 
 
+### delete_recently_added
+Flush out all of the recently added items in the database.
+
+
 ### delete_temp_sessions
 Flush out all of the temporary sessions in the database.
 
@@ -287,7 +311,7 @@ Required parameters:
     user_id (str):          The id of the Plex user
 
 Optional parameters:
-    None
+    row_ids (str):          Comma separated row ids to delete, e.g. "2,3,8"
 
 Returns:
     None
@@ -327,6 +351,7 @@ Required parameters:
 
 Optional parameters:
     custom_thumb (str):         The URL for the custom library thumbnail
+    custom_art (str):           The URL for the custom library background art
     keep_history (int):         0 or 1
 
 Returns:
@@ -395,7 +420,11 @@ Returns:
                  "banner": "/library/metadata/1219/banner/1503306930",
                  "bif_thumb": "/library/parts/274169/indexes/sd/1000",
                  "bitrate": "10617",
+                 "channel_call_sign": "",
+                 "channel_identifier": "",
                  "channel_stream": 0,
+                 "channel_thumb": "",
+                 "children_count": "",
                  "collections": [],
                  "container": "mkv",
                  "content_rating": "TV-MA",
@@ -416,6 +445,7 @@ Returns:
                      "Drama",
                      "Fantasy"
                  ],
+                 "grandparent_guid": "com.plexapp.agents.thetvdb://121361?lang=en",
                  "grandparent_rating_key": "1219",
                  "grandparent_thumb": "/library/metadata/1219/thumb/1503306930",
                  "grandparent_title": "Game of Thrones",
@@ -426,13 +456,15 @@ Returns:
                  "ip_address": "10.10.10.1",
                  "ip_address_public": "64.123.23.111",
                  "is_admin": 1,
-                 "is_allow_sync": null,
+                 "is_allow_sync": 1,
                  "is_home_user": 1,
                  "is_restricted": 0,
                  "keep_history": 1,
                  "labels": [],
                  "last_viewed_at": "1462165717",
                  "library_name": "TV Shows",
+                 "live": 0,
+                 "live_uuid": "",
                  "local": "1",
                  "location": "lan",
                  "machine_id": "lmd93nkn12k29j2lnm",
@@ -441,8 +473,9 @@ Returns:
                  "optimized_version": 0,
                  "optimized_version_profile": "",
                  "optimized_version_title": "",
-                 "originally_available_at": "2016-04-24",
                  "original_title": "",
+                 "originally_available_at": "2016-04-24",
+                 "parent_guid": "com.plexapp.agents.thetvdb://121361/6?lang=en",
                  "parent_media_index": "6",
                  "parent_rating_key": "153036",
                  "parent_thumb": "/library/metadata/153036/thumb/1503889210",
@@ -461,6 +494,7 @@ Returns:
                  "rating_key": "153037",
                  "relay": 0,
                  "section_id": "2",
+                 "secure": 1,
                  "session_id": "helf15l3rxgw01xxe0jf3l3d",
                  "session_key": "27",
                  "shared_libraries": [
@@ -499,15 +533,23 @@ Returns:
                  "stream_subtitle_location": "",
                  "stream_video_bit_depth": "8",
                  "stream_video_bitrate": "10233",
+                 "stream_video_chroma_subsampling": "4:2:0",
                  "stream_video_codec": "h264",
                  "stream_video_codec_level": "41",
+                 "stream_video_color_primaries": "",
+                 "stream_video_color_range": "tv",
+                 "stream_video_color_space": "bt709",
+                 "stream_video_color_trc": "",
                  "stream_video_decision": "direct play",
+                 "stream_video_dynamic_range": "SDR",
                  "stream_video_framerate": "24p",
+                 "stream_video_full_resolution": "1080p",
                  "stream_video_height": "1078",
                  "stream_video_language": "",
                  "stream_video_language_code": "",
                  "stream_video_ref_frames": "4",
                  "stream_video_resolution": "1080",
+                 "stream_video_scan_type": "progressive",
                  "stream_video_width": "1920",
                  "studio": "HBO",
                  "subtitle_codec": "",
@@ -555,17 +597,25 @@ Returns:
                  "username": "LordCommanderSnow",
                  "video_bit_depth": "8",
                  "video_bitrate": "10233",
+                 "video_chroma_subsampling": "4:2:0",
                  "video_codec": "h264",
                  "video_codec_level": "41",
+                 "video_color_primaries": "",
+                 "video_color_range": "tv",
+                 "video_color_space": "bt709",
+                 "video_color_trc": ",
                  "video_decision": "direct play",
+                 "video_dynamic_range": "SDR",
                  "video_frame_rate": "23.976",
                  "video_framerate": "24p",
+                 "video_full_resolution": "1080p",
                  "video_height": "1078",
                  "video_language": "",
                  "video_language_code": "",
                  "video_profile": "high",
                  "video_ref_frames": "4",
                  "video_resolution": "1080",
+                 "video_scan_type": "progressive",
                  "video_width": "1920",
                  "view_offset": "1000",
                  "width": "1920",
@@ -622,7 +672,7 @@ Returns:
 
 
 ### get_geoip_lookup
-Get the geolocation info for an IP address. The GeoLite2 database must be installed.
+Get the geolocation info for an IP address.
 
 ```
 Required parameters:
@@ -633,7 +683,7 @@ Optional parameters:
 
 Returns:
     json:
-        {"continent": "North America",
+        {"code": 'US",
          "country": "United States",
          "region": "California",
          "city": "Mountain View",
@@ -642,9 +692,6 @@ Returns:
          "latitude": 37.386,
          "longitude": -122.0838,
          "accuracy": 1000
-         }
-    json:
-        {"error": "The address 127.0.0.1 is not in the database."
          }
 ```
 
@@ -665,8 +712,9 @@ Optional parameters:
     grandparent_rating_key (int):   351
     start_date (str):               "YYYY-MM-DD"
     section_id (int):               2
-    media_type (str):               "movie", "episode", "track"
+    media_type (str):               "movie", "episode", "track", "live"
     transcode_decision (str):       "direct play", "copy", "transcode",
+    guid (str):                     Plex guid for an item, e.g. "com.plexapp.agents.thetvdb://121361/6/1"
     order_column (str):             "date", "friendly_name", "ip_address", "platform", "player",
                                     "full_title", "started", "paused_counter", "stopped", "duration"
     order_dir (str):                "desc" or "asc"
@@ -691,19 +739,23 @@ Returns:
               "original_title": "",
               "group_count": 1,
               "group_ids": "1124",
-              "id": 1124,
+              "guid": "com.plexapp.agents.thetvdb://121361/6/1?lang=en",
               "ip_address": "xxx.xxx.xxx.xxx",
+              "live": 0,
               "media_index": 17,
               "media_type": "episode",
+              "originally_available_at": "2016-04-24",
               "parent_media_index": 7,
               "parent_rating_key": 544,
               "parent_title": "",
               "paused_counter": 0,
               "percent_complete": 84,
-              "platform": "Chrome",
-              "player": "Plex Web (Chrome)",
+              "platform": "Windows",
+              "product": "Plex for Windows",
+              "player": "Castle-PC",
               "rating_key": 4348,
               "reference_id": 1123,
+              "row_id": 1124,
               "session_key": null,
               "started": 1462688107,
               "state": null,
@@ -733,7 +785,7 @@ Required parameters:
 Optional parameters:
     grouping (int):         0 or 1
     time_range (str):       The time range to calculate statistics, '30'
-    stats_type (int):       0 for plays, 1 for duration
+    stats_type (str):       plays or duration
     stats_count (str):      The number of top items to list, '5'
 
 Returns:
@@ -751,8 +803,10 @@ Returns:
             [{"content_rating": "TV-MA",
               "friendly_name": "",
               "grandparent_thumb": "/library/metadata/1219/thumb/1462175063",
+              "guid": "com.plexapp.agents.thetvdb://121361/6/1?lang=en",
               "labels": [],
               "last_play": 1462380698,
+              "live": 0,
               "media_type": "episode",
               "platform": "",
               "platform_type": "",
@@ -813,6 +867,7 @@ Returns:
         [{"art": "/:/resources/show-fanart.jpg",
           "child_count": "3745",
           "count": "62",
+          "is_active": 1,
           "parent_count": "240",
           "section_id": "2",
           "section_name": "TV Shows",
@@ -833,6 +888,7 @@ Required parameters:
     None
 
 Optional parameters:
+    grouping (int):                 0 or 1
     order_column (str):             "library_thumb", "section_name", "section_type", "count", "parent_count",
                                     "child_count", "last_accessed", "last_played", "plays", "duration"
     order_dir (str):                "desc" or "asc"
@@ -852,23 +908,29 @@ Returns:
               "do_notify": "Checked",
               "do_notify_created": "Checked",
               "duration": 1578037,
-              "id": 1128,
+              "guid": "com.plexapp.agents.thetvdb://121361/6/1?lang=en",
+              "histroy_row_id": 1128,
+              "is_active": 1,
               "keep_history": "Checked",
               "labels": [],
               "last_accessed": 1462693216,
               "last_played": "Game of Thrones - The Red Woman",
               "library_art": "/:/resources/show-fanart.jpg",
-              "library_thumb": "",
+              "library_thumb": "/:/resources/show.png",
+              "live": 0,
               "media_index": 1,
               "media_type": "episode",
+              "originally_available_at": "2016-04-24",
               "parent_count": 240,
               "parent_media_index": 6,
               "parent_title": "",
               "plays": 772,
               "rating_key": 153037,
+              "row_id": 1,
               "section_id": 2,
               "section_name": "TV Shows",
               "section_type": "Show",
+              "server_id": "ds48g4r354a8v9byrrtr697g3g79w",
               "thumb": "/library/metadata/153036/thumb/1462175062",
               "year": 2016
               },
@@ -893,15 +955,19 @@ Returns:
     json:
         {"child_count": null,
          "count": 887,
+         "deleted_section": 0,
          "do_notify": 1,
          "do_notify_created": 1,
+         "is_active": 1,
          "keep_history": 1,
          "library_art": "/:/resources/movie-fanart.jpg",
          "library_thumb": "/:/resources/movie.png",
          "parent_count": null,
+         "row_id": 1,
          "section_id": 1,
          "section_name": "Movies",
-         "section_type": "movie"
+         "section_type": "movie",
+         "server_id": "ds48g4r354a8v9byrrtr697g3g79w"
          }
 ```
 
@@ -949,6 +1015,7 @@ Returns:
               "rating_key": "1219",
               "section_id": 2,
               "section_type": "show",
+              "sort_title": "Game of Thrones",
               "thumb": "/library/metadata/1219/thumb/1436265995",
               "title": "Game of Thrones",
               "video_codec": "",
@@ -1016,10 +1083,11 @@ Get a library's watch time statistics.
 
 ```
 Required parameters:
-    section_id (str):               The id of the Plex library section
+    section_id (str):       The id of the Plex library section
 
 Optional parameters:
     grouping (int):         0 or 1
+    query_days (str):       Comma separated days, e.g. "1,7,30,0"
 
 Returns:
     json:
@@ -1107,6 +1175,7 @@ Returns:
             "Drama",
             "Fantasy"
          ],
+         "grandparent_guid": "com.plexapp.agents.thetvdb://121361?lang=en",
          "grandparent_rating_key": "1219",
          "grandparent_thumb": "/library/metadata/1219/thumb/1462175063",
          "grandparent_title": "Game of Thrones",
@@ -1114,6 +1183,7 @@ Returns:
          "labels": [],
          "last_viewed_at": "1462165717",
          "library_name": "TV Shows",
+         "live": 0,
          "media_index": "1",
          "media_info": [
              {
@@ -1123,6 +1193,9 @@ Returns:
                  "audio_codec": "ac3",
                  "audio_profile": "",
                  "bitrate": "10617",
+                 "channel_call_sign": "",
+                 "channel_identifier": "",
+                 "channel_thumb": "",
                  "container": "mkv",
                  "height": "1078",
                  "id": "257925",
@@ -1141,12 +1214,17 @@ Returns:
                                  "video_bitrate": "10233",
                                  "video_codec": "h264",
                                  "video_codec_level": "41",
+                                 "video_color_primaries": "",
+                                 "video_color_range": "tv",
+                                 "video_color_space": "bt709",
+                                 "video_color_trc": "",
                                  "video_frame_rate": "23.976",
                                  "video_height": "1078",
                                  "video_language": "",
                                  "video_language_code": "",
                                  "video_profile": "high",
                                  "video_ref_frames": "4",
+                                 "video_scan_type": "progressive",
                                  "video_width": "1920",
                                  "selected": 0
                              },
@@ -1181,6 +1259,7 @@ Returns:
                  ],
                  "video_codec": "h264",
                  "video_framerate": "24p",
+                 "video_full_resolution": "1080p",
                  "video_profile": "high",
                  "video_resolution": "1080",
                  "width": "1920"
@@ -1189,6 +1268,7 @@ Returns:
          "media_type": "episode",
          "original_title": "",
          "originally_available_at": "2016-04-24",
+         "parent_guid": "com.plexapp.agents.thetvdb://121361/6?lang=en",
          "parent_media_index": "6",
          "parent_rating_key": "153036",
          "parent_thumb": "/library/metadata/153036/thumb/1462175062",
@@ -1197,7 +1277,7 @@ Returns:
          "rating_image": "rottentomatoes://image.rating.ripe",
          "rating_key": "153037",
          "section_id": "2",
-         "sort_title": "Game of Thrones",
+         "sort_title": "Red Woman",
          "studio": "HBO",
          "summary": "Jon Snow is dead. Daenerys meets a strong man. Cersei sees her daughter again.",
          "tagline": "",
@@ -1493,7 +1573,8 @@ Returns:
          "series":
             [{"name": "Movies", "data": [...]}
              {"name": "TV", "data": [...]},
-             {"name": "Music", "data": [...]}
+             {"name": "Music", "data": [...]},
+             {"name": "Live TV", "data": [...]}
              ]
          }
 ```
@@ -1519,7 +1600,8 @@ Returns:
          "series":
             [{"name": "Movies", "data": [...]}
              {"name": "TV", "data": [...]},
-             {"name": "Music", "data": [...]}
+             {"name": "Music", "data": [...]},
+             {"name": "Live TV", "data": [...]}
              ]
          }
 ```
@@ -1545,7 +1627,8 @@ Returns:
          "series":
             [{"name": "Movies", "data": [...]}
              {"name": "TV", "data": [...]},
-             {"name": "Music", "data": [...]}
+             {"name": "Music", "data": [...]},
+             {"name": "Live TV", "data": [...]}
              ]
          }
 ```
@@ -1649,7 +1732,8 @@ Returns:
          "series":
             [{"name": "Movies", "data": [...]}
              {"name": "TV", "data": [...]},
-             {"name": "Music", "data": [...]}
+             {"name": "Music", "data": [...]},
+             {"name": "Live TV", "data": [...]}
              ]
          }
 ```
@@ -1675,7 +1759,8 @@ Returns:
          "series":
             [{"name": "Movies", "data": [...]}
              {"name": "TV", "data": [...]},
-             {"name": "Music", "data": [...]}
+             {"name": "Music", "data": [...]},
+             {"name": "Live TV", "data": [...]}
              ]
          }
 ```
@@ -1701,7 +1786,8 @@ Returns:
          "series":
             [{"name": "Movies", "data": [...]}
              {"name": "TV", "data": [...]},
-             {"name": "Music", "data": [...]}
+             {"name": "Music", "data": [...]},
+             {"name": "Live TV", "data": [...]}
              ]
          }
 ```
@@ -1775,7 +1861,7 @@ Returns:
 
 
 ### get_recently_added
-Get all items that where recelty added to plex.
+Get all items that where recently added to plex.
 
 ```
 Required parameters:
@@ -1783,28 +1869,65 @@ Required parameters:
 
 Optional parameters:
     start (str):        The item number to start at
-    type (str):         The media type: movie, show, artist
+    media_type (str):   The media type: movie, show, artist
     section_id (str):   The id of the Plex library section
 
 Returns:
     json:
         {"recently_added":
-            [{"added_at": "1461572396",
+            [{"actors": [
+                 "Kit Harington",
+                 "Emilia Clarke",
+                 "Isaac Hempstead-Wright",
+                 "Maisie Williams",
+                 "Liam Cunningham",
+              ],
+              "added_at": "1461572396",
+              "art": "/library/metadata/1219/art/1462175063",
+              "audience_rating": "8",
+              "audience_rating_image": "rottentomatoes://image.rating.upright",
+              "banner": "/library/metadata/1219/banner/1462175063",
+              "directors": [
+                 "Jeremy Podeswa"
+              ],
+              "duration": "2998290",
+              "full_title": "Game of Thrones - The Red Woman",
+              "genres": [
+                 "Adventure",
+                 "Drama",
+                 "Fantasy"
+              ],
               "grandparent_rating_key": "1219",
               "grandparent_thumb": "/library/metadata/1219/thumb/1462175063",
               "grandparent_title": "Game of Thrones",
-              "library_name": "",
+              "guid": "com.plexapp.agents.thetvdb://121361/6/1?lang=en",
+              "labels": [],
+              "last_viewed_at": "1462165717",
+              "library_name": "TV Shows",
               "media_index": "1",
               "media_type": "episode",
               "original_title": "",
+              "originally_available_at": "2016-04-24",
               "parent_media_index": "6",
               "parent_rating_key": "153036",
               "parent_thumb": "/library/metadata/153036/thumb/1462175062",
               "parent_title": "",
+              "rating": "7.8",
+              "rating_image": "rottentomatoes://image.rating.ripe",
               "rating_key": "153037",
               "section_id": "2",
+              "sort_title": "Red Woman",
+              "studio": "HBO",
+              "summary": "Jon Snow is dead. Daenerys meets a strong man. Cersei sees her daughter again.",
+              "tagline": "",
               "thumb": "/library/metadata/153037/thumb/1462175060",
               "title": "The Red Woman",
+              "user_rating": "9.0",
+              "updated_at": "1462175060",
+              "writers": [
+                 "David Benioff",
+                 "D. B. Weiss"
+              ],
               "year": "2016"
               },
              {...},
@@ -1986,6 +2109,7 @@ Returns:
          "stream_video_bitrate": 527,
          "stream_video_codec": "h264",
          "stream_video_decision": "transcode",
+         "stream_video_dynamic_range": "SDR",
          "stream_video_framerate": "24p",
          "stream_video_height": 306,
          "stream_video_resolution": "SD",
@@ -2000,6 +2124,7 @@ Returns:
          "video_bitrate": 2500,
          "video_codec": "h264",
          "video_decision": "transcode",
+         "video_dynamic_range": "SDR",
          "video_framerate": "24p",
          "video_height": 816,
          "video_resolution": "1080",
@@ -2119,10 +2244,13 @@ Returns:
          "do_notify": 1,
          "email": "Jon.Snow.1337@CastleBlack.com",
          "friendly_name": "Jon Snow",
+         "is_active": 1,
+         "is_admin": 0,
          "is_allow_sync": 1,
          "is_home_user": 1,
          "is_restricted": 0,
          "keep_history": 1,
+         "row_id": 1,
          "shared_libraries": ["10", "1", "4", "5", "15", "20", "2"],
          "user_id": 133788,
          "user_thumb": "https://plex.tv/users/k10w42309cynaopq/avatar",
@@ -2153,12 +2281,15 @@ Returns:
          "recordsFiltered": 10,
          "data":
             [{"friendly_name": "Jon Snow",
+              "guid": "com.plexapp.agents.thetvdb://121361/6/1?lang=en",
               "id": 1121,
               "ip_address": "xxx.xxx.xxx.xxx",
               "last_played": "Game of Thrones - The Red Woman",
               "last_seen": 1462591869,
+              "live": 0,
               "media_index": 1,
               "media_type": "episode",
+              "originally_available_at": "2016-04-24",
               "parent_media_index": 6,
               "parent_title": "",
               "platform": "Chrome",
@@ -2272,6 +2403,7 @@ Required parameters:
 
 Optional parameters:
     grouping (int):         0 or 1
+    query_days (str):       Comma separated days, e.g. "1,7,30,0"
 
 Returns:
     json:
@@ -2315,11 +2447,13 @@ Returns:
           "filter_music": "",
           "filter_photos": "",
           "filter_tv": "",
+          "is_active": 1,
           "is_admin": 0,
           "is_allow_sync": 1,
           "is_home_user": 1,
           "is_restricted": 0,
           "keep_history": 1,
+          "row_id": 1,
           "server_token": "PU9cMuQZxJKFBtGqHk68",
           "shared_libraries": "1;2;3",
           "thumb": "https://plex.tv/users/k10w42309cynaopq/avatar",
@@ -2340,6 +2474,7 @@ Required parameters:
     None
 
 Optional parameters:
+    grouping (int):                 0 or 1
     order_column (str):             "user_thumb", "friendly_name", "last_seen", "ip_address", "platform",
                                     "player", "last_played", "plays", "duration"
     order_dir (str):                "desc" or "asc"
@@ -2357,19 +2492,24 @@ Returns:
               "do_notify": "Checked",
               "duration": 2998290,
               "friendly_name": "Jon Snow",
-              "id": 1121,
+              "guid": "com.plexapp.agents.thetvdb://121361/6/1?lang=en",
+              "history_row_id": 1121,
               "ip_address": "xxx.xxx.xxx.xxx",
+              "is_active": 1,
               "keep_history": "Checked",
               "last_played": "Game of Thrones - The Red Woman",
               "last_seen": 1462591869,
+              "live": 0,
               "media_index": 1,
               "media_type": "episode",
+              "originally_available_at": "2016-04-24",
               "parent_media_index": 6,
               "parent_title": "",
               "platform": "Chrome",
               "player": "Plex Web (Chrome)",
               "plays": 487,
               "rating_key": 153037,
+              "row_id": 1,
               "thumb": "/library/metadata/153036/thumb/1462175062",
               "transcode_decision": "transcode",
               "user_id": 133788,
@@ -2415,24 +2555,25 @@ Returns:
 
 
 ### import_database
-Import a PlexWatch or Plexivity database into Tautulli.
+Import a Tautulli, PlexWatch, or Plexivity database into Tautulli.
 
 ```
 Required parameters:
-    app (str):                      "plexwatch" or "plexivity"
+    app (str):                      "tautulli" or "plexwatch" or "plexivity"
     database_path (str):            The full path to the plexwatch database file
-    table_name (str):               "processed" or "grouped"
+    method (str):                   For Tautulli only, "merge" or "overwrite"
+    table_name (str):               For PlexWatch or Plexivity only, "processed" or "grouped"
+
 
 Optional parameters:
-    import_ignore_interval (int):   The minimum number of seconds for a stream to import
+    backup (bool):                  For Tautulli only, true or false whether to backup
+                                    the current database before importing
+    import_ignore_interval (int):   For PlexWatch or Plexivity only, the minimum number
+                                    of seconds for a stream to import
 
 Returns:
     None
 ```
-
-
-### install_geoip_db
-Downloads and installs the GeoLite2 database
 
 
 ### notify
@@ -2445,6 +2586,7 @@ Required parameters:
     body (str):             The body of the message
 
 Optional parameters:
+    headers (str):          The JSON headers for webhook notifications
     script_args (str):      The arguments for script notifications
 
 Returns:
@@ -2501,10 +2643,10 @@ Optional parameters:
     width (str):            300
     height (str):           450
     opacity (str):          25
-    background (str):       282828
+    background (str):       Hex color, e.g. 282828
     blur (str):             3
     img_format (str):       png
-    fallback (str):         "poster", "cover", "art"
+    fallback (str):         "poster", "cover", "art", "poster-live", "art-live", "art-live-full"
     refresh (bool):         True or False whether to refresh the image cache
     return_hash (bool):     True or False to return the self-hosted image hash instead of the image
 
@@ -2630,7 +2772,7 @@ Returns:
 ### sql
 Query the Tautulli database with raw SQL. Automatically makes a backup of
 the database if the latest backup is older then 24h. `api_sql` must be
-manually enabled in the config file.
+manually enabled in the config file while Tautulli is shut down.
 
 ```
 Required parameters:
@@ -2641,6 +2783,24 @@ Optional parameters:
 
 Returns:
     None
+```
+
+
+### status
+Get the current status of Tautulli.
+
+```
+Required parameters:
+    None
+
+Optional parameters:
+    check (str):        database
+
+Returns:
+    json:
+        {"result": "success",
+         "message": "Ok",
+         }
 ```
 
 
@@ -2690,10 +2850,6 @@ Optional parameters:
 Returns:
     None
 ```
-
-
-### uninstall_geoip_db
-Uninstalls the GeoLite2 database
 
 
 ### update

@@ -51,7 +51,13 @@ DOCUMENTATION :: END
                 <div class="col-md-12">
                     <div class="table-card-back">
                         <div class="user-info-wrapper">
-                            <div class="user-info-poster-face" style="background-image: url(${data['user_thumb']});"></div>
+                            <div class="user-info-poster-face" style="background-image: url(${data['user_thumb']});">
+                                % if not data['is_active']:
+                                <span class="inactive-user-tooltip" data-toggle="tooltip" title="User not on Plex server">
+                                    <i class="fa fa-2x fa-exclamation-triangle"></i>
+                                </span>
+                                % endif
+                            </div>
                             <div class="user-info-username">
                                 <span class="set-username">${data['friendly_name']}</span>
                                 % if _session['user_group'] == 'admin':
@@ -156,17 +162,20 @@ DOCUMENTATION :: END
                                             </div>
                                             % endif
                                             <div class="btn-group" data-toggle="buttons" id="media_type-selection">
-                                                <label class="btn btn-dark active">
-                                                    <input type="radio" name="media_type-filter" id="history-all" value="" autocomplete="off"> All
+                                                <label class="btn btn-dark">
+                                                    <input type="radio" name="media_type-filter" id="history-all" value="all" autocomplete="off"> All
                                                 </label>
                                                 <label class="btn btn-dark">
-                                                    <input type="radio" name="media_type-filter" id="history-movies" value="movie" autocomplete="off"> Movies
+                                                    <input type="radio" name="media_type-filter" id="history-movie" value="movie" autocomplete="off"> Movies
                                                 </label>
                                                 <label class="btn btn-dark">
-                                                    <input type="radio" name="media_type-filter" id="history-tv_shows" value="episode" autocomplete="off"> TV Shows
+                                                    <input type="radio" name="media_type-filter" id="history-episode" value="episode" autocomplete="off"> TV Shows
                                                 </label>
                                                 <label class="btn btn-dark">
-                                                    <input type="radio" name="media_type-filter" id="history-music" value="track" autocomplete="off"> Music
+                                                    <input type="radio" name="media_type-filter" id="history-track" value="track" autocomplete="off"> Music
+                                                </label>
+                                                <label class="btn btn-dark">
+                                                    <input type="radio" name="media_type-filter" id="history-live" value="live" autocomplete="off"> Live TV
                                                 </label>
                                             </div>
                                             <div class="btn-group">
@@ -184,6 +193,7 @@ DOCUMENTATION :: END
                                                     <th align="left" id="friendly_name">User</th>
                                                     <th align="left" id="ip_address">IP Address</th>
                                                     <th align="left" id="platform">Platform</th>
+                                                    <th align="left" id="product">Product</th>
                                                     <th align="left" id="player">Player</th>
                                                     <th align="left" id="title">Title</th>
                                                     <th align="left" id="started">Started</th>
@@ -274,12 +284,12 @@ DOCUMENTATION :: END
                                         <table class="display user_ip_table" id="user_ip_table-UID-${data['user_id']}" width="100%">
                                             <thead>
                                                 <tr>
-                                                    <th align="left">Last Seen</th>
-                                                    <th align="left">IP Address</th>
-                                                    <th align="left">Last Platform</th>
-                                                    <th align="left">Last Player</th>
-                                                    <th align="left">Last Played</th>
-                                                    <th align="left">Play Count</th>
+                                                    <th align="left" id="last_seen">Last Seen</th>
+                                                    <th align="left" id="ip_address">IP Address</th>
+                                                    <th align="left" id="platform">Last Platform</th>
+                                                    <th align="left" id="player">Last Player</th>
+                                                    <th align="left" id="last_played">Last Played</th>
+                                                    <th align="left" id="play_count">Play Count</th>
                                                 </tr>
                                             </thead>
                                         </table>
@@ -425,7 +435,7 @@ DOCUMENTATION :: END
         history_table = $('#history_table-UID-${data["user_id"]}').DataTable(history_table_options);
         history_table.column(2).visible(false);
 
-        var colvis = new $.fn.dataTable.ColVis(history_table, { buttonText: '<i class="fa fa-columns"></i> Select columns', buttonClass: 'btn btn-dark', exclude: [0, 11] });
+        var colvis = new $.fn.dataTable.ColVis(history_table, { buttonText: '<i class="fa fa-columns"></i> Select columns', buttonClass: 'btn btn-dark', exclude: [0, 12] });
         $(colvis.button()).appendTo('#button-bar-history');
 
         clearSearchButton('history_table-UID-${data["user_id"]}', history_table);
@@ -435,6 +445,7 @@ DOCUMENTATION :: END
             selected_filter = $('input[name=media_type-filter]:checked', '#media_type-selection');
             $(selected_filter).closest('label').addClass('active');
             media_type = $(selected_filter).val();
+            setLocalStorage('user_' + user_id + '-history_media_type', media_type);
             history_table.draw();
         });
     }
@@ -494,7 +505,9 @@ DOCUMENTATION :: END
 
     $('a[href="#tabs-history"]').on('shown.bs.tab', function() {
         if (typeof(history_table) === 'undefined') {
-            var media_type = null;
+            var media_type = getLocalStorage('user_' + user_id + '-history_media_type', 'all');
+            $('#history-' + media_type).prop('checked', true);
+            $('#history-' + media_type).closest('label').addClass('active');
             loadHistoryTable(media_type);
         }
     });
@@ -533,6 +546,8 @@ DOCUMENTATION :: END
         login_log_table.draw();
     });
 
+    $(".inactive-user-tooltip").tooltip();
+
     % if _session['user_group'] == 'admin':
     $("#edit-user-tooltip").tooltip();
 
@@ -559,19 +574,17 @@ DOCUMENTATION :: END
                 $('#deleteType').text('history');
                 $('#confirm-modal-delete').modal();
                 $('#confirm-modal-delete').one('click', '#confirm-delete', function () {
-                    history_to_delete.forEach(function(row, idx) {
-                        $.ajax({
-                            url: 'delete_history_rows',
-                            type: 'POST',
-                            data: { row_id: row },
-                            async: true,
-                            success: function (data) {
-                                var msg = "History deleted";
-                                showMsg(msg, false, true, 2000);
-                            }
-                        });
+                    $.ajax({
+                        url: 'delete_history_rows',
+                        type: 'POST',
+                        data: { row_ids: history_to_delete.join(',') },
+                        async: true,
+                        success: function (data) {
+                            var msg = "History deleted";
+                            showMsg(msg, false, true, 2000);
+                            history_table.draw();
+                        }
                     });
-                    history_table.draw();
                 });
             }
 

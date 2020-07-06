@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
 # This file is part of PlexPy.
@@ -16,16 +15,24 @@
 #  You should have received a copy of the GNU General Public License
 #  along with PlexPy.  If not, see <http://www.gnu.org/licenses/>.
 
+from __future__ import unicode_literals
+from future.builtins import object
+from future.builtins import str
+
 from functools import partial
 from multiprocessing.dummy import Pool as ThreadPool
-from urlparse import urljoin
+from future.moves.urllib.parse import urljoin
 
 import certifi
 import urllib3
 
 import plexpy
-import helpers
-import logger
+if plexpy.PYTHON2:
+    import helpers
+    import logger
+else:
+    from plexpy import helpers
+    from plexpy import logger
 
 
 class HTTPHandler(object):
@@ -36,7 +43,7 @@ class HTTPHandler(object):
     def __init__(self, urls, headers=None, token=None, timeout=10, ssl_verify=True, silent=False):
         self._silent = silent
 
-        if isinstance(urls, basestring):
+        if isinstance(urls, str):
             self.urls = urls.split() or urls.split(',')
         else:
             self.urls = urls
@@ -66,31 +73,35 @@ class HTTPHandler(object):
     def make_request(self,
                      uri=None,
                      headers=None,
+                     data=None,
                      request_type='GET',
                      output_format='raw',
                      return_type=False,
                      no_token=False,
                      timeout=None,
-                     callback=None):
+                     callback=None,
+                     **request_kwargs):
         """
         Handle the HTTP requests.
 
         Output: list
         """
 
-        self.uri = uri.encode('utf-8')
+        self.uri = str(uri)
+        self.data = data
         self.request_type = request_type.upper()
         self.output_format = output_format.lower()
         self.return_type = return_type
         self.callback = callback
         self.timeout = timeout or self.timeout
+        self.request_kwargs = request_kwargs
 
         if self.request_type not in self.valid_request_types:
-            logger.debug(u"HTTP request made but unsupported request type given.")
+            logger.debug("HTTP request made but unsupported request type given.")
             return None
 
         if uri:
-            request_urls = [urljoin(url, self.uri) for url in self.urls]
+            request_urls = [urljoin(str(url), self.uri) for url in self.urls]
 
             if no_token:
                 self.headers.pop('X-Plex-Token', None)
@@ -104,7 +115,7 @@ class HTTPHandler(object):
             return responses[0]
 
         else:
-            logger.debug(u"HTTP request made but no enpoint given.")
+            logger.debug("HTTP request made but no enpoint given.")
             return None
 
     def _http_requests_pool(self, urls, workers=10, chunk=None):
@@ -118,7 +129,7 @@ class HTTPHandler(object):
                 chunk = 0
 
         if self.ssl_verify:
-            session = urllib3.PoolManager(cert_reqs='CERT_REQUIRED', ca_certs=certifi.where())
+            session = urllib3.PoolManager(cert_reqs=2, ca_certs=certifi.where())  # ssl.CERT_REQUIRED = 2
         else:
             urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
             session = urllib3.PoolManager()
@@ -134,7 +145,7 @@ class HTTPHandler(object):
                     yield work
             except Exception as e:
                 if not self._silent:
-                    logger.error(u"Failed to yield request: %s" % e)
+                    logger.error("Failed to yield request: %s" % e)
             finally:
                 pool.close()
                 pool.join()
@@ -142,18 +153,19 @@ class HTTPHandler(object):
     def _http_requests_urllib3(self, url, session):
         """Request the data from the url"""
         try:
-            r = session.request(self.request_type, url, headers=self.headers, timeout=self.timeout)
+            r = session.request(self.request_type, url, headers=self.headers, fields=self.data,
+                                timeout=self.timeout, **self.request_kwargs)
         except IOError as e:
             if not self._silent:
-                logger.warn(u"Failed to access uri endpoint %s with error %s" % (self.uri, e))
+                logger.warn("Failed to access uri endpoint %s with error %s" % (self.uri, e))
             return None
         except Exception as e:
             if not self._silent:
-                logger.warn(u"Failed to access uri endpoint %s. Is your server maybe accepting SSL connections only? %s" % (self.uri, e))
+                logger.warn("Failed to access uri endpoint %s. Is your server maybe accepting SSL connections only? %s" % (self.uri, e))
             return None
         except:
             if not self._silent:
-                logger.warn(u"Failed to access uri endpoint %s with Uncaught exception." % self.uri)
+                logger.warn("Failed to access uri endpoint %s with Uncaught exception." % self.uri)
             return None
 
         response_status = r.status
@@ -164,7 +176,7 @@ class HTTPHandler(object):
             return self._http_format_output(response_content, response_headers)
         else:
             if not self._silent:
-                logger.warn(u"Failed to access uri endpoint %s. Status code %r" % (self.uri, response_status))
+                logger.warn("Failed to access uri endpoint %s. Status code %r" % (self.uri, response_status))
             return None
 
     def _http_format_output(self, response_content, response_headers):
@@ -191,5 +203,5 @@ class HTTPHandler(object):
 
         except Exception as e:
             if not self._silent:
-                logger.warn(u"Failed format response from uri %s to %s error %s" % (self.uri, self.output_format, e))
+                logger.warn("Failed format response from uri %s to %s error %s" % (self.uri, self.output_format, e))
             return None

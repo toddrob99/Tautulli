@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 #  This file is part of Tautulli.
 #
 #  Tautulli is free software: you can redistribute it and/or modify
@@ -13,17 +15,25 @@
 #  You should have received a copy of the GNU General Public License
 #  along with Tautulli.  If not, see <http://www.gnu.org/licenses/>.
 
+from __future__ import unicode_literals
+
+import distro
 import platform
 from collections import OrderedDict
 
-import version
+import plexpy
+if plexpy.PYTHON2:
+    import version
+else:
+    from plexpy import version
+
 
 # Identify Our Application
 PRODUCT = 'Tautulli'
 PLATFORM = platform.system()
 PLATFORM_RELEASE = platform.release()
 PLATFORM_VERSION = platform.version()
-PLATFORM_LINUX_DISTRO = ' '.join(x for x in platform.linux_distribution() if x)
+PLATFORM_LINUX_DISTRO = ' '.join(x for x in distro.linux_distribution() if x)
 PLATFORM_DEVICE_NAME = platform.node()
 BRANCH = version.PLEXPY_BRANCH
 RELEASE = version.PLEXPY_RELEASE_VERSION
@@ -34,10 +44,25 @@ DEFAULT_USER_THUMB = "interfaces/default/images/gravatar-default-80x80.png"
 DEFAULT_POSTER_THUMB = "interfaces/default/images/poster.png"
 DEFAULT_COVER_THUMB = "interfaces/default/images/cover.png"
 DEFAULT_ART = "interfaces/default/images/art.png"
+DEFAULT_LIVE_TV_POSTER_THUMB = "interfaces/default/images/poster-live.png"
+DEFAULT_LIVE_TV_ART = "interfaces/default/images/art-live.png"
+DEFAULT_LIVE_TV_ART_FULL = "interfaces/default/images/art-live-full.png"
 
 ONLINE_POSTER_THUMB = "https://tautulli.com/images/poster.png"
 ONLINE_COVER_THUMB = "https://tautulli.com/images/cover.png"
 ONLINE_ART = "https://tautulli.com/images/art.png"
+
+LIVE_TV_SECTION_ID = 999999  # Fake section_id for Live TV library
+LIVE_TV_SECTION_NAME = "Live TV"  # Fake section_name for Live TV library
+
+DEFAULT_IMAGES = {
+    'poster': DEFAULT_POSTER_THUMB,
+    'cover': DEFAULT_COVER_THUMB,
+    'art': DEFAULT_ART,
+    'poster-live': DEFAULT_LIVE_TV_POSTER_THUMB,
+    'art-live': DEFAULT_LIVE_TV_ART,
+    'art-live-full': DEFAULT_LIVE_TV_ART_FULL
+}
 
 MEDIA_TYPE_HEADERS = {
     'movie': 'Movies',
@@ -54,7 +79,9 @@ PLATFORM_NAME_OVERRIDES = {
     'Mystery 3': 'Playstation 3',
     'Mystery 4': 'Playstation 4',
     'Mystery 5': 'Xbox 360',
-    'WebMAF': 'Playstation 4'
+    'WebMAF': 'Playstation 4',
+    'windows': 'Windows',
+    'osx': 'macOS'
 }
 
 PMS_PLATFORM_NAME_OVERRIDES = {
@@ -77,6 +104,7 @@ PLATFORM_NAMES = {
     'nexus': 'android',
     'macos': 'macos',
     'microsoft edge': 'msedge',
+    'netcast': 'lg',
     'opera': 'opera',
     'osx': 'macos',
     'playstation': 'playstation',
@@ -92,13 +120,14 @@ PLATFORM_NAMES = {
     'tizen': 'samsung',
     'tvos': 'atv',
     'vizio': 'opera',
+    'webos': 'lg',
     'wiiu': 'wiiu',
     'windows': 'windows',
     'windows phone': 'wp',
     'xbmc': 'xbmc',
     'xbox': 'xbox'
 }
-PLATFORM_NAMES = OrderedDict(sorted(PLATFORM_NAMES.items(), key=lambda k: k[0], reverse=True))
+PLATFORM_NAMES = OrderedDict(sorted(list(PLATFORM_NAMES.items()), key=lambda k: k[0], reverse=True))
 
 MEDIA_FLAGS_AUDIO = {
     'ac.?3': 'dolby_digital',
@@ -119,11 +148,6 @@ AUDIO_CODEC_OVERRIDES = {
 
 VIDEO_RESOLUTION_OVERRIDES = {
     'sd': 'SD',
-    '480': '480p',
-    '540': '540p',
-    '576': '576p',
-    '720': '720p',
-    '1080': '1080p',
     '4k': '4k'
 }
 
@@ -152,7 +176,7 @@ VIDEO_QUALITY_PROFILES = {
     96: '0.096 Mbps',
     64: '0.064 Mbps'
 }
-VIDEO_QUALITY_PROFILES = OrderedDict(sorted(VIDEO_QUALITY_PROFILES.items(), key=lambda k: k[0], reverse=True))
+VIDEO_QUALITY_PROFILES = OrderedDict(sorted(list(VIDEO_QUALITY_PROFILES.items()), key=lambda k: k[0], reverse=True))
 
 AUDIO_QUALITY_PROFILES = {
     512: '512 kbps',
@@ -162,17 +186,17 @@ AUDIO_QUALITY_PROFILES = {
     128: '128 kbps',
     96: '96 kbps'
 }
-AUDIO_QUALITY_PROFILES = OrderedDict(sorted(AUDIO_QUALITY_PROFILES.items(), key=lambda k: k[0], reverse=True))
+AUDIO_QUALITY_PROFILES = OrderedDict(sorted(list(AUDIO_QUALITY_PROFILES.items()), key=lambda k: k[0], reverse=True))
 
 HW_DECODERS = [
     'dxva2',
     'videotoolbox',
     'mediacodecndk',
-    'vaapi'
+    'vaapi',
+    'nvdec'
 ]
 HW_ENCODERS = [
     'qsv',
-    'nvenc',
     'mf',
     'videotoolbox',
     'mediacodecndk',
@@ -310,14 +334,14 @@ NOTIFICATION_PARAMETERS = [
              {'name': 'Server Version', 'type': 'str', 'value': 'server_version', 'description': 'The current version of your Plex Server.'},
              {'name': 'Server ID', 'type': 'str', 'value': 'server_machine_id', 'description': 'The unique identifier for your Plex Server.'},
              {'name': 'Action', 'type': 'str', 'value': 'action', 'description': 'The action that triggered the notification.'},
-             {'name': 'Current Year', 'type': 'int', 'value': 'current_year', 'description': 'The year when the notfication is triggered.'},
-             {'name': 'Current Month', 'type': 'int', 'value': 'current_month', 'description': 'The month when the notfication is triggered.', 'example': '1 to 12'},
-             {'name': 'Current Day', 'type': 'int', 'value': 'current_day', 'description': 'The day when the notfication is triggered.', 'example': '1 to 31'},
-             {'name': 'Current Hour', 'type': 'int', 'value': 'current_hour', 'description': 'The hour when the notfication is triggered.', 'example': '0 to 23'},
-             {'name': 'Current Minute', 'type': 'int', 'value': 'current_minute', 'description': 'The minute when the notfication is triggered.', 'example': '0 to 59'},
-             {'name': 'Current Second', 'type': 'int', 'value': 'current_second', 'description': 'The second when the notfication is triggered.', 'example': '0 to 59'},
-             {'name': 'Current Weekday', 'type': 'int', 'value': 'current_weekday', 'description': 'The ISO weekday when the notfication is triggered.', 'example': '1 (Mon) to 7 (Sun)'},
-             {'name': 'Current Week', 'type': 'int', 'value': 'current_week', 'description': 'The ISO week number when the notfication is triggered.', 'example': '1 to 52'},
+             {'name': 'Current Year', 'type': 'int', 'value': 'current_year', 'description': 'The year when the notification is triggered.'},
+             {'name': 'Current Month', 'type': 'int', 'value': 'current_month', 'description': 'The month when the notification is triggered.', 'example': '1 to 12'},
+             {'name': 'Current Day', 'type': 'int', 'value': 'current_day', 'description': 'The day when the notification is triggered.', 'example': '1 to 31'},
+             {'name': 'Current Hour', 'type': 'int', 'value': 'current_hour', 'description': 'The hour when the notification is triggered.', 'example': '0 to 23'},
+             {'name': 'Current Minute', 'type': 'int', 'value': 'current_minute', 'description': 'The minute when the notification is triggered.', 'example': '0 to 59'},
+             {'name': 'Current Second', 'type': 'int', 'value': 'current_second', 'description': 'The second when the notification is triggered.', 'example': '0 to 59'},
+             {'name': 'Current Weekday', 'type': 'int', 'value': 'current_weekday', 'description': 'The ISO weekday when the notification is triggered.', 'example': '1 (Mon) to 7 (Sun)'},
+             {'name': 'Current Week', 'type': 'int', 'value': 'current_week', 'description': 'The ISO week number when the notification is triggered.', 'example': '1 to 52'},
              {'name': 'Datestamp', 'type': 'str', 'value': 'datestamp', 'description': 'The date (in date format) when the notification is triggered.'},
              {'name': 'Timestamp', 'type': 'str', 'value': 'timestamp', 'description': 'The time (in time format) when the notification is triggered.'},
              {'name': 'Unix Time', 'type': 'int', 'value': 'unixtime', 'description': 'The unix timestamp when the notification is triggered.'},
@@ -327,14 +351,26 @@ NOTIFICATION_PARAMETERS = [
     {
         'category': 'Stream Details',
         'parameters': [
-             {'name': 'Streams', 'type': 'int', 'value': 'streams', 'description': 'The number of concurrent streams.'},
-             {'name': 'User Streams', 'type': 'int', 'value': 'user_streams', 'description': 'The number of concurrent streams by the person streaming.'},
-             {'name': 'User', 'type': 'str', 'value': 'user', 'description': 'The friendly name of the person streaming.'},
-             {'name': 'Username', 'type': 'str', 'value': 'username', 'description': 'The username of the person streaming.'},
+             {'name': 'Streams', 'type': 'int', 'value': 'streams', 'description': 'The total number of concurrent streams.'},
+             {'name': 'Direct Plays', 'type': 'int', 'value': 'direct_plays', 'description': 'The total number of concurrent direct plays.'},
+             {'name': 'Direct Streams', 'type': 'int', 'value': 'direct_streams', 'description': 'The total number of concurrent direct streams.'},
+             {'name': 'Transcodes', 'type': 'int', 'value': 'transcodes', 'description': 'The total number of concurrent transcodes.'},
+             {'name': 'Total Bandwidth', 'type': 'int', 'value': 'total_bandwidth', 'description': 'The total Plex Streaming Brain reserved bandwidth (in kbps).', 'help_text': 'not the used bandwidth'},
+             {'name': 'LAN Bandwidth', 'type': 'int', 'value': 'lan_bandwidth', 'description': 'The total Plex Streaming Brain reserved LAN bandwidth (in kbps).', 'help_text': 'not the used bandwidth'},
+             {'name': 'WAN Bandwidth', 'type': 'int', 'value': 'wan_bandwidth', 'description': 'The total Plex Streaming Brain reserved WAN bandwidth (in kbps).', 'help_text': 'not the used bandwidth'},
+             {'name': 'User Streams', 'type': 'int', 'value': 'user_streams', 'description': 'The number of concurrent streams by the user streaming.'},
+             {'name': 'User Direct Plays', 'type': 'int', 'value': 'user_direct_plays', 'description': 'The number of concurrent direct plays by the user streaming.'},
+             {'name': 'User Direct Streams', 'type': 'int', 'value': 'user_direct_streams', 'description': 'The number of concurrent direct streams by the user streaming.'},
+             {'name': 'User Transcodes', 'type': 'int', 'value': 'user_transcodes', 'description': 'The number of concurrent transcodes by the user streaming.'},
+             {'name': 'User', 'type': 'str', 'value': 'user', 'description': 'The friendly name of the user streaming.'},
+             {'name': 'Username', 'type': 'str', 'value': 'username', 'description': 'The username of the user streaming.'},
+             {'name': 'User Email', 'type': 'str', 'value': 'user_email', 'description': 'The email address of the user streaming.'},
+             {'name': 'User Thumb', 'type': 'str', 'value': 'user_thumb', 'description': 'The profile picture URL of the user streaming.'},
              {'name': 'Device', 'type': 'str', 'value': 'device', 'description': 'The type of client device being used for playback.'},
              {'name': 'Platform', 'type': 'str', 'value': 'platform', 'description': 'The type of client platform being used for playback.'},
              {'name': 'Product', 'type': 'str', 'value': 'product', 'description': 'The type of client product being used for playback.'},
              {'name': 'Player', 'type': 'str', 'value': 'player', 'description': 'The name of the player being used for playback.'},
+             {'name': 'Initial Stream', 'type': 'int', 'value': 'initial_stream', 'description': 'If the stream is the initial stream of a continuous streaming session.', 'example': '0 or 1'},
              {'name': 'IP Address', 'type': 'str', 'value': 'ip_address', 'description': 'The IP address of the device being used for playback.'},
              {'name': 'Stream Duration', 'type': 'int', 'value': 'stream_duration', 'description': 'The duration (in minutes) for the stream.'},
              {'name': 'Stream Time', 'type': 'str', 'value': 'stream_time', 'description': 'The duration (in time format) of the stream.'},
@@ -352,9 +388,14 @@ NOTIFICATION_PARAMETERS = [
              {'name': 'Optimized Version Profile', 'type': 'str', 'value': 'optimized_version_profile', 'description': 'The optimized version profile of the stream.'},
              {'name': 'Synced Version', 'type': 'int', 'value': 'synced_version', 'description': 'If the stream is an synced version.', 'example': '0 or 1'},
              {'name': 'Live', 'type': 'int', 'value': 'live', 'description': 'If the stream is live TV.', 'example': '0 or 1'},
+             {'name': 'Channel Call Sign', 'type': 'str', 'value': 'channel_call_sign', 'description': 'The Live TV channel call sign.'},
+             {'name': 'Channel Identifier', 'type': 'str', 'value': 'channel_identifier', 'description': 'The Live TV channel number.'},
+             {'name': 'Channel Thumb', 'type': 'str', 'value': 'channel_thumb', 'description': 'The URL for the Live TV channel logo.'},
+             {'name': 'Secure', 'type': 'int', 'value': 'secure', 'description': 'If the stream is using a secure connection.', 'example': '0 or 1'},
+             {'name': 'Relayed', 'type': 'int', 'value': 'relayed', 'description': 'If the stream is using Plex Relay.', 'example': '0 or 1'},
              {'name': 'Stream Local', 'type': 'int', 'value': 'stream_local', 'description': 'If the stream is local.', 'example': '0 or 1'},
              {'name': 'Stream Location', 'type': 'str', 'value': 'stream_location', 'description': 'The network location of the stream.', 'example': 'lan or wan'},
-             {'name': 'Stream Bandwidth', 'type': 'int', 'value': 'stream_bandwidth', 'description': 'The required bandwidth (in kbps) of the stream.', 'help_text': 'not the used bandwidth'},
+             {'name': 'Stream Bandwidth', 'type': 'int', 'value': 'stream_bandwidth', 'description': 'The Plex Streaming Brain reserved bandwidth (in kbps) of the stream.', 'help_text': 'not the used bandwidth'},
              {'name': 'Stream Container', 'type': 'str', 'value': 'stream_container', 'description': 'The media container of the stream.'},
              {'name': 'Stream Bitrate', 'type': 'int', 'value': 'stream_bitrate', 'description': 'The bitrate (in kbps) of the stream.'},
              {'name': 'Stream Aspect Ratio', 'type': 'float', 'value': 'stream_aspect_ratio', 'description': 'The aspect ratio of the stream.'},
@@ -362,9 +403,17 @@ NOTIFICATION_PARAMETERS = [
              {'name': 'Stream Video Codec Level', 'type': 'int', 'value': 'stream_video_codec_level', 'description': 'The video codec level of the stream.'},
              {'name': 'Stream Video Bitrate', 'type': 'int', 'value': 'stream_video_bitrate', 'description': 'The video bitrate (in kbps) of the stream.'},
              {'name': 'Stream Video Bit Depth', 'type': 'int', 'value': 'stream_video_bit_depth', 'description': 'The video bit depth of the stream.'},
+             {'name': 'Stream Video Chroma Subsampling', 'type': 'str', 'value': 'stream_video_chroma_subsampling', 'description': 'The video chroma subsampling of the stream.'},
+             {'name': 'Stream Video Color Primaries', 'type': 'str', 'value': 'stream_video_color_primaries', 'description': 'The video color primaries of the stream.'},
+             {'name': 'Stream Video Color Range', 'type': 'str', 'value': 'stream_video_color_range', 'description': 'The video color range of the stream.'},
+             {'name': 'Stream Video Color Space', 'type': 'str', 'value': 'stream_video_color_space', 'description': 'The video color space of the stream.'},
+             {'name': 'Stream Video Color Transfer Function', 'type': 'str', 'value': 'stream_video_color_trc', 'description': 'The video transfer function of the stream.'},
+             {'name': 'Stream Video Dynamic Range', 'type': 'str', 'value': 'stream_video_dynamic_range', 'description': 'The video dynamic range of the stream.', 'example': 'HDR or SDR'},
              {'name': 'Stream Video Framerate', 'type': 'str', 'value': 'stream_video_framerate', 'description': 'The video framerate of the stream.'},
+             {'name': 'Stream Video Full Resolution', 'type': 'str', 'value': 'stream_video_full_resolution', 'description': 'The video resolution of the stream with scan type.'},
              {'name': 'Stream Video Ref Frames', 'type': 'int', 'value': 'stream_video_ref_frames', 'description': 'The video reference frames of the stream.'},
              {'name': 'Stream Video Resolution', 'type': 'str', 'value': 'stream_video_resolution', 'description': 'The video resolution of the stream.'},
+             {'name': 'Stream Video Scan Type', 'type': 'str', 'value': 'stream_video_scan_type', 'description': 'The video scan type of the stream.'},
              {'name': 'Stream Video Height', 'type': 'int', 'value': 'stream_video_height', 'description': 'The video height of the stream.'},
              {'name': 'Stream Video Width', 'type': 'int', 'value': 'stream_video_width', 'description': 'The video width of the stream.'},
              {'name': 'Stream Video Language', 'type': 'str', 'value': 'stream_video_language', 'description': 'The video language of the stream.'},
@@ -427,13 +476,13 @@ NOTIFICATION_PARAMETERS = [
              {'name': 'Album Count', 'type': 'int', 'value': 'album_count', 'description': 'The number of albums.'},
              {'name': 'Track Count', 'type': 'int', 'value': 'track_count', 'description': 'The number of tracks.'},
              {'name': 'Year', 'type': 'int', 'value': 'year', 'description': 'The release year for the item.'},
-             {'name': 'Release Date', 'type': 'int', 'value': 'release_date', 'description': 'The release date (in date format) for the item.'},
+             {'name': 'Release Date', 'type': 'str', 'value': 'release_date', 'description': 'The release date (in date format) for the item.'},
              {'name': 'Air Date', 'type': 'str', 'value': 'air_date', 'description': 'The air date (in date format) for the item.'},
              {'name': 'Added Date', 'type': 'str', 'value': 'added_date', 'description': 'The date (in date format) the item was added to Plex.'},
              {'name': 'Updated Date', 'type': 'str', 'value': 'updated_date', 'description': 'The date (in date format) the item was updated on Plex.'},
              {'name': 'Last Viewed Date', 'type': 'str', 'value': 'last_viewed_date', 'description': 'The date (in date format) the item was last viewed on Plex.'},
              {'name': 'Studio', 'type': 'str', 'value': 'studio', 'description': 'The studio for the item.'},
-             {'name': 'Content Rating', 'type': 'int', 'value': 'content_rating', 'description': 'The content rating for the item.', 'example': 'e.g. TV-MA, TV-PG, etc.'},
+             {'name': 'Content Rating', 'type': 'str', 'value': 'content_rating', 'description': 'The content rating for the item.', 'example': 'e.g. TV-MA, TV-PG, etc.'},
              {'name': 'Directors', 'type': 'str', 'value': 'directors', 'description': 'A list of directors for the item.'},
              {'name': 'Writers', 'type': 'str', 'value': 'writers', 'description': 'A list of writers for the item.'},
              {'name': 'Actors', 'type': 'str', 'value': 'actors', 'description': 'A list of actors for the item.'},
@@ -456,7 +505,9 @@ NOTIFICATION_PARAMETERS = [
              {'name': 'TMDB URL', 'type': 'str', 'value': 'themoviedb_url', 'description': 'The TMDb URL for the movie or TV show.'},
              {'name': 'TVmaze ID', 'type': 'int', 'value': 'tvmaze_id', 'description': 'The TVmaze ID for the TV show.', 'example': 'e.g. 290'},
              {'name': 'TVmaze URL', 'type': 'str', 'value': 'tvmaze_url', 'description': 'The TVmaze URL for the TV show.'},
-             {'name': 'Last.fm URL', 'type': 'str', 'value': 'lastfm_url', 'description': 'The Last.fm URL for the album.'},
+             {'name': 'MusicBrainz ID', 'type': 'str', 'value': 'musicbrainz_id', 'description': 'The MusicBrainz ID for the artist, album, or track.', 'example': 'e.g. b670dfcf-9824-4309-a57e-03595aaba286'},
+             {'name': 'MusicBrainz URL', 'type': 'str', 'value': 'musicbrainz_url', 'description': 'The MusicBrainz URL for the artist, album, or track.'},
+             {'name': 'Last.fm URL', 'type': 'str', 'value': 'lastfm_url', 'description': 'The Last.fm URL for the album.', 'help_text': 'Music library agent must be Last.fm'},
              {'name': 'Trakt.tv URL', 'type': 'str', 'value': 'trakt_url', 'description': 'The trakt.tv URL for the movie or TV show.'},
              {'name': 'Container', 'type': 'str', 'value': 'container', 'description': 'The media container of the original media.'},
              {'name': 'Bitrate', 'type': 'int', 'value': 'bitrate', 'description': 'The bitrate of the original media.'},
@@ -465,9 +516,17 @@ NOTIFICATION_PARAMETERS = [
              {'name': 'Video Codec Level', 'type': 'int', 'value': 'video_codec_level', 'description': 'The video codec level of the original media.'},
              {'name': 'Video Bitrate', 'type': 'int', 'value': 'video_bitrate', 'description': 'The video bitrate of the original media.'},
              {'name': 'Video Bit Depth', 'type': 'int', 'value': 'video_bit_depth', 'description': 'The video bit depth of the original media.'},
+             {'name': 'Video Chroma Subsampling', 'type': 'str', 'value': 'video_chroma_subsampling', 'description': 'The video chroma subsampling of the original media.'},
+             {'name': 'Video Color Primaries', 'type': 'str', 'value': 'video_color_primaries', 'description': 'The video color primaries of the original media.'},
+             {'name': 'Video Color Range', 'type': 'str', 'value': 'video_color_range', 'description': 'The video color range of the original media.'},
+             {'name': 'Video Color Space', 'type': 'str', 'value': 'video_color_space', 'description': 'The video color space of the original media.'},
+             {'name': 'Video Color Transfer Function', 'type': 'str', 'value': 'video_color_trc', 'description': 'The video transfer function of the original media.'},
+             {'name': 'Video Dynamic Range', 'type': 'str', 'value': 'video_dynamic_range', 'description': 'The video dynamic range of the original media.', 'example': 'HDR or SDR'},
              {'name': 'Video Framerate', 'type': 'str', 'value': 'video_framerate', 'description': 'The video framerate of the original media.'},
+             {'name': 'Video Full Resolution', 'type': 'str', 'value': 'video_full_resolution', 'description': 'The video resolution of the original media with scan type.'},
              {'name': 'Video Ref Frames', 'type': 'int', 'value': 'video_ref_frames', 'description': 'The video reference frames of the original media.'},
              {'name': 'Video Resolution', 'type': 'str', 'value': 'video_resolution', 'description': 'The video resolution of the original media.'},
+             {'name': 'Video Scan Tpye', 'type': 'str', 'value': 'video_scan_type', 'description': 'The video scan type of the original media.'},
              {'name': 'Video Height', 'type': 'int', 'value': 'video_height', 'description': 'The video height of the original media.'},
              {'name': 'Video Width', 'type': 'int', 'value': 'video_width', 'description': 'The video width of the original media.'},
              {'name': 'Video Language', 'type': 'str', 'value': 'video_language', 'description': 'The video language of the original media.'},
@@ -494,6 +553,7 @@ NOTIFICATION_PARAMETERS = [
              {'name': 'Rating Key', 'type': 'int', 'value': 'rating_key', 'description': 'The unique identifier for the movie, episode, or track.'},
              {'name': 'Parent Rating Key', 'type': 'int', 'value': 'parent_rating_key', 'description': 'The unique identifier for the season or album.'},
              {'name': 'Grandparent Rating Key', 'type': 'int', 'value': 'grandparent_rating_key', 'description': 'The unique identifier for the TV show or artist.'},
+             {'name': 'Art', 'type': 'str', 'value': 'art', 'description': 'The Plex background art for the media.'},
              {'name': 'Thumb', 'type': 'str', 'value': 'thumb', 'description': 'The Plex thumbnail for the movie or episode.'},
              {'name': 'Parent Thumb', 'type': 'str', 'value': 'parent_thumb', 'description': 'The Plex thumbnail for the season or album.'},
              {'name': 'Grandparent Thumb', 'type': 'str', 'value': 'grandparent_thumb', 'description': 'The Plex thumbnail for the TV show or artist.'},
@@ -501,6 +561,18 @@ NOTIFICATION_PARAMETERS = [
              {'name': 'Poster Title', 'type': 'str', 'value': 'poster_title', 'description': 'The title for the poster image.'},
              {'name': 'Indexes', 'type': 'int', 'value': 'indexes', 'description': 'If the media has video preview thumbnails.', 'example': '0 or 1'},
          ]
+     },
+    {
+        'category': 'Plex Remote Access',
+        'parameters': [
+            {'name': 'Remote Access Mapping State', 'type': 'str', 'value': 'remote_access_mapping_state', 'description': 'The mapping state of the Plex remote access port.'},
+            {'name': 'Remote Access Mapping Error', 'type': 'str', 'value': 'remote_access_mapping_error', 'description': 'The mapping error of the Plex remote access port.'},
+            {'name': 'Remote Access Public IP Address', 'type': 'str', 'value': 'remote_access_public_address', 'description': 'The Plex remote access public IP address.'},
+            {'name': 'Remote Access Public Port', 'type': 'str', 'value': 'remote_access_public_port', 'description': 'The Plex remote access public port.'},
+            {'name': 'Remote Access Private IP Address', 'type': 'str', 'value': 'remote_access_private_address', 'description': 'The Plex remote access private IP address.'},
+            {'name': 'Remote Access Private Port', 'type': 'str', 'value': 'remote_access_private_port', 'description': 'The Plex remote access private port.'},
+            {'name': 'Remote Access Failure Reason', 'type': 'str', 'value': 'remote_access_reason', 'description': 'The failure reason for Plex remote access going down.'},
+        ]
      },
     {
         'category': 'Plex Update Available',

@@ -1,4 +1,6 @@
-﻿#  This file is part of Tautulli.
+﻿# -*- coding: utf-8 -*-
+
+#  This file is part of Tautulli.
 #
 #  Tautulli is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -13,25 +15,32 @@
 #  You should have received a copy of the GNU General Public License
 #  along with Tautulli.  If not, see <http://www.gnu.org/licenses/>.
 
-import os
-import time
+from __future__ import unicode_literals
 
-from apscheduler.schedulers.background import BackgroundScheduler
+import os
+
 from apscheduler.triggers.cron import CronTrigger
 import email.utils
 
 import plexpy
-import database
-import logger
-import newsletters
+if plexpy.PYTHON2:
+    import database
+    import helpers
+    import logger
+    import newsletters
+else:
+    from plexpy import database
+    from plexpy import helpers
+    from plexpy import logger
+    from plexpy import newsletters
 
 
-NEWSLETTER_SCHED = BackgroundScheduler()
+NEWSLETTER_SCHED = None
 
 
 def add_newsletter_each(newsletter_id=None, notify_action=None, **kwargs):
     if not notify_action:
-        logger.debug(u"Tautulli NewsletterHandler :: Notify called but no action received.")
+        logger.debug("Tautulli NewsletterHandler :: Notify called but no action received.")
         return
 
     data = {'newsletter': True,
@@ -56,22 +65,28 @@ def schedule_newsletters(newsletter_id=None):
 
 
 def schedule_newsletter_job(newsletter_job_id, name='', func=None, remove_job=False, args=None, cron=None):
+    # apscheduler day_of_week uses 0-6 = mon-sun
+    if cron:
+        cron = cron.split(' ')
+        cron[4] = str((int(cron[4]) - 1) % 7) if cron[4].isdigit() else cron[4]
+        cron = ' '.join(cron)
+
     if NEWSLETTER_SCHED.get_job(newsletter_job_id):
         if remove_job:
             NEWSLETTER_SCHED.remove_job(newsletter_job_id)
-            logger.info(u"Tautulli NewsletterHandler :: Removed scheduled newsletter: %s" % name)
+            logger.info("Tautulli NewsletterHandler :: Removed scheduled newsletter: %s" % name)
         else:
             NEWSLETTER_SCHED.reschedule_job(
-                newsletter_job_id, args=args, trigger=CronTrigger().from_crontab(cron))
-            logger.info(u"Tautulli NewsletterHandler :: Re-scheduled newsletter: %s" % name)
+                newsletter_job_id, args=args, trigger=CronTrigger.from_crontab(cron))
+            logger.info("Tautulli NewsletterHandler :: Re-scheduled newsletter: %s" % name)
     elif not remove_job:
         NEWSLETTER_SCHED.add_job(
             func, args=args, id=newsletter_job_id, trigger=CronTrigger.from_crontab(cron))
-        logger.info(u"Tautulli NewsletterHandler :: Scheduled newsletter: %s" % name)
+        logger.info("Tautulli NewsletterHandler :: Scheduled newsletter: %s" % name)
 
 
 def notify(newsletter_id=None, notify_action=None, **kwargs):
-    logger.info(u"Tautulli NewsletterHandler :: Preparing newsletter for newsletter_id %s." % newsletter_id)
+    logger.info("Tautulli NewsletterHandler :: Preparing newsletter for newsletter_id %s." % newsletter_id)
 
     newsletter_config = newsletters.get_newsletter_config(newsletter_id=newsletter_id)
 
@@ -130,7 +145,7 @@ def set_notify_state(newsletter, notify_action, subject, body, message, filename
     if newsletter and notify_action:
         db = database.MonitorDatabase()
 
-        keys = {'timestamp': int(time.time()),
+        keys = {'timestamp': helpers.timestamp(),
                 'uuid': newsletter_uuid}
 
         values = {'newsletter_id': newsletter['id'],
@@ -150,7 +165,7 @@ def set_notify_state(newsletter, notify_action, subject, body, message, filename
         db.upsert(table_name='newsletter_log', key_dict=keys, value_dict=values)
         return db.last_insert_id()
     else:
-        logger.error(u"Tautulli NewsletterHandler :: Unable to set notify state.")
+        logger.error("Tautulli NewsletterHandler :: Unable to set notify state.")
 
 
 def set_notify_success(newsletter_log_id):
@@ -203,6 +218,6 @@ def get_newsletter(newsletter_uuid=None, newsletter_id_name=None):
                     newsletter = n_file.read()
                 return newsletter
             except OSError as e:
-                logger.error(u"Tautulli NewsletterHandler :: Failed to retrieve newsletter '%s': %s" % (newsletter_uuid, e))
+                logger.error("Tautulli NewsletterHandler :: Failed to retrieve newsletter '%s': %s" % (newsletter_uuid, e))
         else:
-            logger.warn(u"Tautulli NewsletterHandler :: Newsletter file '%s' is missing." % newsletter_file)
+            logger.warn("Tautulli NewsletterHandler :: Newsletter file '%s' is missing." % newsletter_file)

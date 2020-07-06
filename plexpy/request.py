@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 #  This file is part of Tautulli.
 #
 #  Tautulli is free software: you can redistribute it and/or modify
@@ -13,21 +15,28 @@
 #  You should have received a copy of the GNU General Public License
 #  along with Tautulli.  If not, see <http://www.gnu.org/licenses/>.
 
+from __future__ import unicode_literals
+from future.builtins import str
+
 from bs4 import BeautifulSoup
 from xml.dom import minidom
 
-import feedparser
 import collections
 import requests
+from requests.packages import urllib3
 
 import plexpy
-import plexpy.lock
-import logger
+if plexpy.PYTHON2:
+    import lock
+    import logger
+else:
+    from plexpy import lock
+    from plexpy import logger
 
 
 # Dictionary with last request times, for rate limiting.
 last_requests = collections.defaultdict(int)
-fake_lock = plexpy.lock.FakeLock()
+fake_lock = lock.FakeLock()
 
 
 def request_response(url, method="get", auto_raise=True,
@@ -51,6 +60,8 @@ def request_response(url, method="get", auto_raise=True,
     # Disable verification of SSL certificates if requested. Note: this could
     # pose a security issue!
     kwargs["verify"] = bool(plexpy.CONFIG.VERIFY_SSL_CERT)
+    if not kwargs['verify']:
+        urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
     # Map method to the request.XXX method. This is a simple hack, but it
     # allows requests to apply more magic per method. See lib/requests/api.py.
@@ -141,6 +152,8 @@ def request_response2(url, method="get", auto_raise=True,
     # Disable verification of SSL certificates if requested. Note: this could
     # pose a security issue!
     kwargs['verify'] = bool(plexpy.CONFIG.VERIFY_SSL_CERT)
+    if not kwargs['verify']:
+        urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
     # Map method to the request.XXX method. This is a simple hack, but it
     # allows requests to apply more magic per method. See lib/requests/api.py.
@@ -266,17 +279,6 @@ def request_content(url, **kwargs):
         return response.content
 
 
-def request_feed(url, **kwargs):
-    """
-    Wrapper for `request_response', which will return a feed object.
-    """
-
-    response = request_response(url, **kwargs)
-
-    if response is not None:
-        return feedparser.parse(response.content)
-
-
 def server_message(response, return_msg=False):
     """
     Extract server message from response and log in to logger with DEBUG level.
@@ -289,7 +291,7 @@ def server_message(response, return_msg=False):
     message = None
 
     # First attempt is to 'read' the response as HTML
-    if "text/html" in response.headers.get("content-type"):
+    if "text/html" in response.headers.get("content-type", ""):
         try:
             soup = BeautifulSoup(response.content, "html5lib")
         except Exception:
@@ -313,14 +315,13 @@ def server_message(response, return_msg=False):
         message = response.content.strip()
 
     if message:
+        message = str(message, 'utf-8', 'replace')
+
         # Truncate message if it is too long.
         if len(message) > 150:
             message = message[:150] + "..."
 
         if return_msg:
-            try:
-                return unicode(message, 'UTF-8')
-            except:
-                return message
+            return message
 
         logger.debug("Server responded with message: %s", message)

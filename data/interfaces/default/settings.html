@@ -7,6 +7,9 @@
     from plexpy import common, notifiers, newsletters
     from plexpy.helpers import anon_url, checked
 
+    docker_setting = 'disabled' if plexpy.DOCKER else ''
+    docker_msg = '<span class="setting-message small">(Controlled by Docker Container)</span>' if plexpy.DOCKER else ''
+
     available_notification_agents = sorted(notifiers.available_notification_agents(), key=lambda k: k['label'].lower())
     available_newsletter_agents = sorted(newsletters.available_newsletter_agents(), key=lambda k: k['label'].lower())
 %>
@@ -53,6 +56,7 @@
                 <li role="presentation"><a href="#tabs-notifications" aria-controls="tabs-notifications" role="tab" data-toggle="tab">Notifications & Newsletters</a></li>
                 <li role="presentation"><a href="#tabs-notification_agents" aria-controls="tabs-notification_agents" role="tab" data-toggle="tab">Notification Agents</a></li>
                 <li role="presentation"><a href="#tabs-newsletter_agents" aria-controls="tabs-newsletter_agents" role="tab" data-toggle="tab">Newsletter Agents</a></li>
+                <li role="presentation"><a href="#tabs-3rd_party_apis" aria-controls="tabs-3rd_party_apis" role="tab" data-toggle="tab">3rd Party APIs</a></li>
                 <li role="presentation"><a href="#tabs-import_backups" aria-controls="tabs-import_backups" role="tab" data-toggle="tab">Import & Backups</a></li>
                 <li role="presentation"><a href="#tabs-android_app" aria-controls="tabs-android_app" role="tab" data-toggle="tab">Tautulli Remote Android App <sup><small>beta</small></sup></a></li>
             </ul>
@@ -67,6 +71,13 @@
                             <h3>Version ${common.RELEASE} <small><a id="changelog-modal-link" href="#"><i class="fa fa-info-circle"></i> Changelog</a></small></h3>
                         </div>
                         % endif
+                        <div class="padded-header">
+                            <h3>Tautulli News</h3>
+                        </div>
+                        <div id="tautulli-news">
+                            <div class='text-muted'><i class="fa fa-refresh fa-spin"></i> Loading news...</div>
+                            <br>
+                        </div>
                         <div class="padded-header">
                             <h3>Tautulli Configuration</h3>
                         </div>
@@ -211,12 +222,14 @@
                             <p class="help-block">Check for Tautulli updates periodically.</p>
                         </div>
                         <div id="git_update_options">
+                            % if not plexpy.FROZEN:
                             <div class="checkbox">
                                 <label>
-                                    <input type="checkbox" id="plexpy_auto_update" name="plexpy_auto_update" value="1" ${config['plexpy_auto_update']}> Update Automatically
+                                    <input type="checkbox" id="plexpy_auto_update" name="plexpy_auto_update" value="1" ${config['plexpy_auto_update']} ${docker_setting}> Update Automatically ${docker_msg | n}
                                 </label>
                                 <p class="help-block">Update Tautulli automatically if an update is available.</p>
                             </div>
+                            % endif
                             <div class="form-group advanced-setting">
                                 <label for="git_token">GitHub API Token</label>
                                 <div class="row">
@@ -230,12 +243,12 @@
 
                         % if plexpy.INSTALL_TYPE == 'git':
                         <div class="form-group advanced-setting">
-                            <label for="git_branch">Git Remote / Branch</label>
+                            <label for="git_branch">Git Remote / Branch</label> ${docker_msg | n}
                             <div class="row">
                                 <div class="col-md-6">
                                     <div class="input-group git-group">
-                                        <input type="text" class="form-control" id="git_remote" name="git_remote" value="${config['git_remote']}" data-parsley-trigger="change">
-                                        <select class="form-control" id="git_branch" name="git_branch">
+                                        <input type="text" class="form-control" id="git_remote" name="git_remote" value="${config['git_remote']}" data-parsley-trigger="change" ${docker_setting}>
+                                        <select class="form-control" id="git_branch" name="git_branch" ${docker_setting}>
                                             <% branches = ('master', 'beta', 'nightly') %>
                                             % for branch in branches:
                                             <option value="${branch}" ${'selected' if config['git_branch'] == branch else ''}>${branch}</option>
@@ -245,7 +258,7 @@
                                             % endif
                                         </select>
                                         <span class="input-group-btn">
-                                            <button class="btn btn-form" type="button" id="switch_git_branch">Checkout Branch</button>
+                                            <button class="btn btn-form" type="button" id="switch_git_branch" ${docker_setting}>Checkout Branch</button>
                                         </span>
                                     </div>
                                 </div>
@@ -253,13 +266,27 @@
                             <p class="help-block">The git tracking remote and branch (default "origin/master"). Select to switch the git branch (requires restart).</p>
                         </div>
                         <div class="form-group advanced-setting">
-                            <label for="git_path">Git Path</label>
+                            <label for="git_path">Git Path</label> ${docker_msg | n}
                             <div class="row">
                                 <div class="col-md-4">
-                                    <input type="text" class="form-control" id="git_path" name="git_path" value="${config['git_path']}" size="30">
+                                    <input type="text" class="form-control" id="git_path" name="git_path" value="${config['git_path']}" size="30" ${docker_setting}>
                                 </div>
                             </div>
                             <p class="help-block">Optional: The path to your git environment variable. Leave blank for default.</p>
+                        </div>
+                        <div class="form-group advanced-setting">
+                            <label>Repair Git Install</label>
+                            <p class="help-block">
+                                Attempt to fix updating by resetting your Tautulli installation back to <strong>${common.RELEASE}</strong>.<br />
+                                Note: This will not affect any saved history or settings.
+                            </p>
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <div class="btn-group">
+                                        <button class="btn btn-form" type="button" id="reset_git_install">Reset</button>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                         % endif
 
@@ -281,7 +308,7 @@
                                 </div>
                                 <div id="home_refresh_interval_error" class="alert alert-danger settings-alert" role="alert"></div>
                             </div>
-                            <p class="help-block">Set the interval (in seconds) to refresh the current activity on the homepage. Minimum 2.</p>
+                            <p class="help-block">Set the interval (in seconds) to refresh the current activity on the homepage. Minimum 2, default 10.</p>
                         </div>
 
                         <div class="padded-header">
@@ -430,12 +457,27 @@
                         </div>
 
                         <p class="help-block">Note: Web interface changes require a restart.</p>
-                        % if os.name == 'nt':
+                        % if common.PLATFORM in ('Windows', 'Darwin'):
+                        <%
+                            tray = {'Windows': 'System Tray', 'Darwin': 'Menu Bar'}
+                            tray_disabled = tray_disabled_msg = ''
+                            if common.PLATFORM == 'Darwin':
+                                from plexpy.macos import HAS_PYOBJC
+                                if not HAS_PYOBJC:
+                                    tray_disabled = 'disabled'
+                                    tray_disabled_msg = '<span class="setting-message small">(Missing pyobjc module)</span>'
+                        %>
                         <div class="checkbox">
                             <label>
-                                <input type="checkbox" class="http-settings" name="win_sys_tray" id="win_sys_tray" value="1" ${config['win_sys_tray']}> Enable System Tray Icon
+                                <input type="checkbox" class="http-settings" name="sys_tray_icon" id="sys_tray_icon" value="1" ${config['sys_tray_icon']} ${tray_disabled}> Enable ${tray[common.PLATFORM]} Icon ${tray_disabled_msg | n}
                             </label>
-                            <p class="help-block">Show Tautulli shortcut in the system tray.</p>
+                            <p class="help-block">Show Tautulli shortcut in the ${tray[common.PLATFORM].lower()}.</p>
+                        </div>
+                        <div class="checkbox">
+                            <label>
+                                <input type="checkbox" name="launch_startup" id="launch_startup" value="1" ${config['launch_startup']}> Launch at System Startup
+                            </label>
+                            <p class="help-block">Start Tautulli automatically after Login.</p>
                         </div>
                         % endif
                         <div class="checkbox">
@@ -445,19 +487,19 @@
                             <p class="help-block">Launch browser pointed to Tautulli on startup.</p>
                         </div>
                         <div class="form-group advanced-setting">
-                            <label for="http_host">HTTP Host</label>
+                            <label for="http_host">HTTP Host</label> ${docker_msg | n}
                             <div class="row">
                                 <div class="col-md-6">
-                                    <input type="text" class="form-control http-settings" id="http_host" name="http_host" value="${config['http_host']}" data-parsley-trigger="change" required>
+                                    <input type="text" class="form-control http-settings" id="http_host" name="http_host" value="${config['http_host']}" data-parsley-trigger="change" required ${docker_setting}>
                                 </div>
                             </div>
                             <p class="help-block">localhost or an IP address to bind the web server to. Default 0.0.0.0 to bind to all interfaces.</p>
                         </div>
                         <div class="form-group">
-                            <label for="http_port">HTTP Port</label>
+                            <label for="http_port">HTTP Port</label> ${docker_msg | n}
                             <div class="row">
                                 <div class="col-md-2">
-                                    <input type="text" class="form-control http-settings" data-parsley-type="integer" id="http_port" name="http_port" value="${config['http_port']}" data-parsley-trigger="change" data-parsley-errors-container="#http_port_error" required>
+                                    <input type="text" class="form-control http-settings" data-parsley-type="integer" id="http_port" name="http_port" value="${config['http_port']}" data-parsley-trigger="change" data-parsley-errors-container="#http_port_error" required ${docker_setting}>
                                 </div>
                                 <div id="http_port_error" class="alert alert-danger settings-alert" role="alert"></div>
                             </div>
@@ -469,7 +511,7 @@
                                 <div class="col-md-8">
                                     <input type="text" class="form-control" id="http_base_url" name="http_base_url" value="${config['http_base_url']}" placeholder="http://mydomain.com" data-parsley-trigger="change" data-parsley-pattern="^https?:\/\/\S+$" data-parsley-errors-container="#http_base_url_error"  data-parsley-error-message="Invalid URL">
                                 </div>
-                                <div id=http_base_url_error" class="alert alert-danger settings-alert" role="alert"></div>
+                                <div id="http_base_url_error" class="alert alert-danger settings-alert" role="alert"></div>
                             </div>
                             <p class="help-block">
                                 Set your public Tautulli domain for self-hosted notification images and newsletters. (e.g. http://mydomain.com)
@@ -811,6 +853,18 @@
                                     </div>
                                 </div>
                             </div>
+                            <div class="form-group">
+                                <label for="pms_update_check_interval">Update Check Interval</label>
+                                <div class="row">
+                                    <div class="col-md-2">
+                                        <input type="text" class="form-control" data-parsley-type="integer" id="pms_update_check_interval" name="pms_update_check_interval" value="${config['pms_update_check_interval']}" size="3" data-parsley-min="1" data-parsley-trigger="change" data-parsley-errors-container="#pms_update_check_interval_error" required>
+                                    </div>
+                                    <div id="pms_update_check_interval_error" class="alert alert-danger settings-alert" role="alert"></div>
+                                </div>
+                                <p class="help-block">
+                                    The interval (in hours) Tautulli will check for a new Plex Media Server update. Minimum 1, default 24.
+                                </p>
+                            </div>
                         </div>
                         <div class="checkbox">
                             <label>
@@ -819,6 +873,28 @@
                             <span id="cloudMonitorRemoteAccess" style="display: none; color: #eb8600; padding-left: 10px;"> Not available for Plex Cloud servers.</span>
                             <span id="remoteAccessCheck" class="settings-warning"></span>
                             <p class="help-block">Enable to have Tautulli check if remote access to the Plex Media Server goes down.</p>
+                        </div>
+                        <div id="monitor_remote_access_options">
+                            <div class="form-group advanced-setting">
+                                <label for="remote_access_ping_interval">Remote Access Ping Interval</label>
+                                <div class="row">
+                                    <div class="col-md-2">
+                                        <input type="text" class="form-control" data-parsley-type="integer" id="remote_access_ping_interval" name="remote_access_ping_interval" value="${config['remote_access_ping_interval']}" size="5" data-parsley-min="60" data-parsley-trigger="change" data-parsley-errors-container="#remote_access_ping_interval_error" required>
+                                    </div>
+                                    <div id="remote_access_ping_interval_error" class="alert alert-danger settings-alert" role="alert"></div>
+                                </div>
+                                <p class="help-block">The interval (in seconds) Tautulli will ping the Plex Media Server for the remote access status. Minimum 60.</p>
+                            </div>
+                            <div class="form-group advanced-setting">
+                                <label for="remote_access_ping_threshold">Remote Access Ping Threshold</label>
+                                <div class="row">
+                                    <div class="col-md-2">
+                                        <input type="text" class="form-control" data-parsley-type="integer" id="remote_access_ping_threshold" name="remote_access_ping_threshold" value="${config['remote_access_ping_threshold']}" size="5" data-parsley-min="1" data-parsley-trigger="change" data-parsley-errors-container="#remote_access_ping_threshold_error" required>
+                                    </div>
+                                    <div id="remote_access_ping_threshold_error" class="alert alert-danger settings-alert" role="alert"></div>
+                                </div>
+                                <p class="help-block">The number of consecutive remote access status failures to consider remote access as down. Minimum 1.</p>
+                            </div>
                         </div>
 
                         <div class="form-group advanced-setting">
@@ -887,7 +963,6 @@
                             <h3>Current Activity Notifications</h3>
                         </div>
 
-                        <p class="help-block">Note: Buffer warnings only work on certain Plex clients. Android and Plex Web do not report buffer events accurately or at all.</p>
                         <div class="form-group">
                             <label for="buffer_threshold">Buffer Threshold</label>
                             <div class="row">
@@ -896,7 +971,13 @@
                                 </div>
                                 <div id="buffer_threshold_error" class="alert alert-danger settings-alert" role="alert"></div>
                             </div>
-                            <p class="help-block">How many buffer events should we wait before triggering the first warning. Buffer events increment on each monitor ping if play state is buffering. 0 to disable buffer warnings.</p>
+                            <p class="help-block">
+                                The number of buffer events required before triggering the first notification.
+                                Buffer events increment on each incoming websocket message if the play state is buffering.
+                                <br>
+                                Note: Buffer warnings only work on certain Plex clients. Some clients can send excessive buffer messages or no messages at all.
+                                This notification may be unreliable and not indicative of a real problem.
+                            </p>
                         </div>
                         <div class="form-group advanced-setting">
                             <label for="buffer_wait">Buffer Wait</label>
@@ -906,7 +987,7 @@
                                 </div>
                                 <div id="buffer_wait_error" class="alert alert-danger settings-alert" role="alert"></div>
                             </div>
-                            <p class="help-block">The value (in seconds) Tautulli should wait before triggering the next buffer warning. 0 to always trigger.</p>
+                            <p class="help-block">The value (in seconds) Tautulli should wait before triggering the next buffer warning. Set to 0 to always trigger.</p>
                         </div>
                         <div class="checkbox advanced-setting">
                             <label>
@@ -929,6 +1010,20 @@
                                 <div id="notify_concurrent_threshold_error" class="alert alert-danger settings-alert" role="alert"></div>
                             </div>
                             <p class="help-block">The number of concurrent streams by a single user for Tautulli to trigger a notification. Minimum 2.</p>
+                        </div>
+                        <div class="form-group advanced-setting">
+                            <label for="notify_concurrent_threshold">Continued Session Threshold</label>
+                            <div class="row">
+                                <div class="col-md-2">
+                                    <input type="text" class="form-control" data-parsley-type="integer" id="notify_continued_session_threshold" name="notify_continued_session_threshold" value="${config['notify_continued_session_threshold']}" data-parsley-min="0" data-parsley-trigger="change" data-parsley-errors-container="#notify_continued_session_threshold_error" required>
+                                </div>
+                                <div id="notify_continued_session_threshold_error" class="alert alert-danger settings-alert" role="alert"></div>
+                            </div>
+                            <p class="help-block">
+                                The number of seconds between stopping and starting a new stream to be considered as a continued session. Set to 0 to consider all streams as new sessions.
+                                <br>
+                                Note: The threshold is only used by the "Initial Stream" notification parameter to determine if a stream is the first stream of a continuous streaming session.
+                            </p>
                         </div>
 
                         <div class="padded-header">
@@ -961,7 +1056,21 @@
                                 </div>
                                 <div id="notify_recently_added_delay_error" class="alert alert-danger settings-alert" role="alert"></div>
                             </div>
-                            <p class="help-block">Set the delay (in seconds) to wait for consecutive recently added items to group together and to allow metadata to be processed before sending the notification. Minimum 60 seconds.</p>
+                            <p class="help-block">Set the delay (in seconds) to wait for consecutive recently added items to group together and to allow metadata to be processed before sending the recently added notification. Minimum 60 seconds, default 300.</p>
+                        </div>
+                        <div class="form-group advanced-setting">
+                            <label>Flush Recently Added</label>
+                            <p class="help-block">
+                                Attempt to fix recently added notifications by flushing out all of the recently added items in the database.<br />
+                                Warning: This will reset all recently added notifications. For emergency use only when recently added notifications are stuck!
+                            </p>
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <div class="btn-group">
+                                        <button class="btn btn-form" type="button" id="delete_recently_added">Flush</button>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                         <!--<div class="checkbox">
                             <label>
@@ -988,7 +1097,7 @@
                                 <p class="help-block" id="self_host_newsletter_message">
                                     Note: The <span class="inline-pre">${http_root}newsletter</span> endpoint on your domain must be publicly accessible from the internet.
                                 </p>
-                                <p class="help-block settings-warning base-url-warning">Warning: Public Tautulli domain not set under <a data-tab-destination="tabs-web_interface" data-target="#http_base_url">Web Interface</a>.</p>
+                                <p class="help-block settings-warning base-url-warning">Warning: Public Tautulli domain not set under <a data-tab-destination="web_interface" data-target="http_base_url">Web Interface</a>.</p>
                             </div>
                             <div class="form-group">
                                 <label for="newsletter_auth">Newsletter Authentication</label>
@@ -1002,7 +1111,7 @@
                                     </div>
                                 </div>
                                 <p class="help-block">Select the authentication method to use for self-hosted newsletters.</p>
-                                <p class="help-block settings-warning newsletter-guest-access-warning">Warning: Guest Access is not enabled under <a data-tab-destination="tabs-web_interface" data-target="#allow_guest_access">Web Interface</a>.</p>
+                                <p class="help-block settings-warning newsletter-guest-access-warning">Warning: Guest Access is not enabled under <a data-tab-destination="web_interface" data-target="allow_guest_access">Web Interface</a>.</p>
                             </div>
                             <div class="form-group" id="newsletter_password_option">
                                 <label for="newsletter_password">Newsletter Password</label>
@@ -1034,114 +1143,13 @@
                             <p class="help-block">Optional: Enter the full path to your custom newsletter templates folder. Leave blank for default.</p>
                         </div>
                         <div class="form-group advanced-setting">
-                            <label for="newsletter_dir">Newsletter Output Directory</label>
+                            <label for="newsletter_dir">Newsletter Output Directory</label> ${docker_msg | n}
                             <div class="row">
                                 <div class="col-md-6">
-                                    <input type="text" class="form-control" id="newsletter_dir" name="newsletter_dir" value="${config['newsletter_dir']}">
+                                    <input type="text" class="form-control" id="newsletter_dir" name="newsletter_dir" value="${config['newsletter_dir']}" ${docker_setting}>
                                 </div>
                             </div>
                             <p class="help-block">Enter the full path to where newsletter files will be saved.</p>
-                        </div>
-
-                        <div class="padded-header">
-                            <h3>3rd Party APIs</h3>
-                        </div>
-
-                        <div class="form-group">
-                            <label for="notify_upload_posters">Image Hosting</label>
-                            <div class="row">
-                                <div class="col-md-6">
-                                    <div class="${'input-group' if config['notify_upload_posters'] in (1, 3) else ''}">
-                                        <select class="form-control" id="notify_upload_posters" name="notify_upload_posters">
-                                            <option value="0" ${'selected' if config['notify_upload_posters'] == 0 else ''}>Disabled</option>
-                                            <option value="1" ${'selected' if config['notify_upload_posters'] == 1 else ''}>Imgur</option>
-                                            <option value="3" ${'selected' if config['notify_upload_posters'] == 3 else ''}>Cloudinary</option>
-                                            <option value="2" ${'selected' if config['notify_upload_posters'] == 2 else ''}>Self-hosted on public domain</option>
-                                        </select>
-                                        % if config['notify_upload_posters'] in (1, 3):
-                                        <span class="input-group-btn" id="delete_all_uploads_container">
-                                            <button class="btn btn-form" type="button" id="delete_all_uploads">Delete All Uploads</button>
-                                        </span>
-                                        % endif
-                                    </div>
-                                </div>
-                            </div>
-                            <p class="help-block">Select where to host Plex images for notifications and newsletters.</p>
-                        </div>
-                        <div id="imgur_upload_options" style="overlfow: hidden; display: ${'none' if config['notify_upload_posters'] != 1 else 'block'}">
-                            <div class="form-group">
-                                <p class="help-block" id="imgur_upload_message">
-                                    You can register a new Imgur application <a href="${anon_url('https://api.imgur.com/oauth2/addclient')}" target="_blank">here</a>.<br>
-                                    Warning: Imgur uploads are rate-limited and newsletters may exceed the limit. Please use Cloudinary for newsletters instead.
-                                </p>
-                            </div>
-                            <div class="form-group">
-                                <label for="imgur_client_id">Imgur Client ID</label>
-                                <div class="row">
-                                    <div class="col-md-6">
-                                        <input type="text" class="form-control" id="imgur_client_id" name="imgur_client_id" value="${config['imgur_client_id']}" data-parsley-trigger="change">
-                                    </div>
-                                </div>
-                                <p class="help-block">Enter your Imgur API Client ID.</p>
-                            </div>
-                        </div>
-                        <div id="self_host_image_options" style="overlfow: hidden; display: ${'none' if config['notify_upload_posters'] != 2 else 'block'}">
-                            <div class="form-group">
-                                <p class="help-block" id="self_host_image_message">Note: The <span class="inline-pre">${http_root}image</span> endpoint on your domain must be publicly accessible from the internet.</p>
-                                <p class="help-block settings-warning base-url-warning">Warning: Public Tautulli domain not set under <a data-tab-destination="tabs-web_interface" data-target="#http_base_url">Web Interface</a>.</p>
-                            </div>
-                        </div>
-                        <div id="cloudinary_upload_options" style="overlfow: hidden; display: ${'none' if config['notify_upload_posters'] != 3 else 'block'}">
-                            <div class="form-group">
-                                <p class="help-block" id="imgur_upload_message">
-                                    You can sign up for Cloudinary <a href="${anon_url('https://cloudinary.com')}" target="_blank">here</a>.<br>
-                                </p>
-                            </div>
-                            <div class="form-group">
-                                <label for="cloudinary_cloud_name">Cloudinary Cloud Name</label>
-                                <div class="row">
-                                    <div class="col-md-6">
-                                        <input type="text" class="form-control" id="cloudinary_cloud_name" name="cloudinary_cloud_name" value="${config['cloudinary_cloud_name']}" data-parsley-trigger="change">
-                                    </div>
-                                </div>
-                                <p class="help-block">
-                                    Enter your Cloudinary Cloud Name.
-                                </p>
-                            </div>
-                            <div class="form-group">
-                                <label for="cloudinary_api_key">Cloudinary API Key</label>
-                                <div class="row">
-                                    <div class="col-md-6">
-                                        <input type="text" class="form-control" id="cloudinary_api_key" name="cloudinary_api_key" value="${config['cloudinary_api_key']}" data-parsley-trigger="change">
-                                    </div>
-                                </div>
-                                <p class="help-block">
-                                    Enter your Cloudinary API Key.
-                                </p>
-                            </div>
-                            <div class="form-group">
-                                <label for="cloudinary_api_secret">Cloudinary API Secret</label>
-                                <div class="row">
-                                    <div class="col-md-6">
-                                        <input type="text" class="form-control" id="cloudinary_api_secret" name="cloudinary_api_secret" value="${config['cloudinary_api_secret']}" data-parsley-trigger="change">
-                                    </div>
-                                </div>
-                                <p class="help-block">
-                                    Enter your Cloudinary API Secret.
-                                </p>
-                            </div>
-                        </div>
-                        <div class="checkbox">
-                            <label>
-                                <input type="checkbox" name="themoviedb_lookup" id="themoviedb_lookup" value="1" ${config['themoviedb_lookup']}> Lookup TheMovieDB Links
-                            </label>
-                            <p class="help-block">Enable to lookup links to TheMovieDB (and IMDb if needed) for movies and TV shows when available.</p>
-                        </div>
-                        <div class="checkbox">
-                            <label>
-                                <input type="checkbox" name="tvmaze_lookup" id="tvmaze_lookup" value="1" ${config['tvmaze_lookup']}> Lookup TVmaze Links
-                            </label>
-                            <p class="help-block">Enable to lookup links to TVmaze (and IMDb if needed) for TV shows when available.</p>
                         </div>
 
                         <p><input type="button" class="btn btn-bright save-button" value="Save" data-success="Changes saved successfully"></p>
@@ -1178,7 +1186,7 @@
                             Add a new newsletter agent, or configure an existing newsletter agent by clicking the settings icon on the right.
                         </p>
                         <p class="help-block settings-warning" id="newsletter_upload_warning">
-                            Warning: The <a data-tab-destination="tabs-notifications" data-target="#notify_upload_posters">Image Hosting</a> setting must be enabled for images to display on the newsletter.</span>
+                            Warning: The <a data-tab-destination="3rd_party_apis" data-target="notify_upload_posters">Image Hosting</a> setting must be enabled for images to display on the newsletter.</span>
                         </p>
                         <br/>
                         <div id="plexpy-newsletters-table">
@@ -1188,14 +1196,150 @@
 
                     </div>
 
+                    <div role="tabpanel" class="tab-pane" id="tabs-3rd_party_apis">
+
+                        <div class="padded-header">
+                            <h3>Image Hosting</h3>
+                        </div>
+
+                        <p class="help-block">Image hosting is used to provide posters and artwork for some notification agents and newsletters.</p>
+
+                        <div class="form-group">
+                            <label for="notify_upload_posters">Image Host</label>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="${'input-group' if config['notify_upload_posters'] in (1, 3) else ''}">
+                                        <select class="form-control" id="notify_upload_posters" name="notify_upload_posters">
+                                            <option value="0" ${'selected' if config['notify_upload_posters'] == 0 else ''}>Disabled</option>
+                                            <option value="1" ${'selected' if config['notify_upload_posters'] == 1 else ''}>Imgur</option>
+                                            <option value="3" ${'selected' if config['notify_upload_posters'] == 3 else ''}>Cloudinary</option>
+                                            <option value="2" ${'selected' if config['notify_upload_posters'] == 2 else ''}>Self-hosted on public domain</option>
+                                        </select>
+                                        % if config['notify_upload_posters'] in (1, 3):
+                                        <span class="input-group-btn" id="delete_all_uploads_container">
+                                            <button class="btn btn-form" type="button" id="delete_all_uploads">Delete All Uploads</button>
+                                        </span>
+                                        % endif
+                                    </div>
+                                </div>
+                            </div>
+                            <p class="help-block">Select where to host Plex images for notifications and newsletters.</p>
+                        </div>
+                        <div id="imgur_upload_options" style="overlfow: hidden; display: ${'none' if config['notify_upload_posters'] != 1 else 'block'}">
+                            <div class="form-group">
+                                <p class="help-block">
+                                    Please see the <a target='_blank' href='${anon_url('https://github.com/%s/%s-Wiki/wiki/3rd-Party-APIs-Guide' % (plexpy.CONFIG.GIT_USER, plexpy.CONFIG.GIT_REPO))}'>3rd Party APIs Guide</a> for instructions on setting up Imgur.<br>
+                                    Warning: Imgur uploads are rate-limited and newsletters may exceed the limit. Please use Cloudinary for newsletters instead.
+                                </p>
+                            </div>
+                            <div class="form-group">
+                                <label for="imgur_client_id">Imgur Client ID</label>
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <input type="text" class="form-control" id="imgur_client_id" name="imgur_client_id" value="${config['imgur_client_id']}" data-parsley-trigger="change">
+                                    </div>
+                                </div>
+                                <p class="help-block">Enter your Imgur API Client ID.</p>
+                            </div>
+                        </div>
+                        <div id="self_host_image_options" style="overlfow: hidden; display: ${'none' if config['notify_upload_posters'] != 2 else 'block'}">
+                            <div class="form-group">
+                                <p class="help-block" id="self_host_image_message">Note: The <span class="inline-pre">${http_root}image</span> endpoint on your domain must be publicly accessible from the internet.</p>
+                                <p class="help-block settings-warning base-url-warning">Warning: Public Tautulli domain not set under <a data-tab-destination="web_interface" data-target="http_base_url">Web Interface</a>.</p>
+                            </div>
+                        </div>
+                        <div id="cloudinary_upload_options" style="overlfow: hidden; display: ${'none' if config['notify_upload_posters'] != 3 else 'block'}">
+                            <div class="form-group">
+                                <p class="help-block">
+                                    Please see the <a target='_blank' href='${anon_url('https://github.com/%s/%s-Wiki/wiki/3rd-Party-APIs-Guide' % (plexpy.CONFIG.GIT_USER, plexpy.CONFIG.GIT_REPO))}'>3rd Party APIs Guide</a> for instructions on setting up Cloudinary.
+                                </p>
+                            </div>
+                            <div class="form-group">
+                                <label for="cloudinary_cloud_name">Cloudinary Cloud Name</label>
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <input type="text" class="form-control" id="cloudinary_cloud_name" name="cloudinary_cloud_name" value="${config['cloudinary_cloud_name']}" data-parsley-trigger="change">
+                                    </div>
+                                </div>
+                                <p class="help-block">
+                                    Enter your Cloudinary Cloud Name.
+                                </p>
+                            </div>
+                            <div class="form-group">
+                                <label for="cloudinary_api_key">Cloudinary API Key</label>
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <input type="text" class="form-control" id="cloudinary_api_key" name="cloudinary_api_key" value="${config['cloudinary_api_key']}" data-parsley-trigger="change">
+                                    </div>
+                                </div>
+                                <p class="help-block">
+                                    Enter your Cloudinary API Key.
+                                </p>
+                            </div>
+                            <div class="form-group">
+                                <label for="cloudinary_api_secret">Cloudinary API Secret</label>
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <input type="text" class="form-control" id="cloudinary_api_secret" name="cloudinary_api_secret" value="${config['cloudinary_api_secret']}" data-parsley-trigger="change">
+                                    </div>
+                                </div>
+                                <p class="help-block">
+                                    Enter your Cloudinary API Secret.
+                                </p>
+                            </div>
+                        </div>
+
+                        <div class="padded-header">
+                            <h3>Metadata Lookups</h3>
+                        </div>
+
+                        <p class="help-block">Metadata lookups are used to provide additional links for notifications when available.</p>
+
+                        <div class="checkbox">
+                            <label>
+                                <input type="checkbox" name="themoviedb_lookup" id="themoviedb_lookup" value="1" ${config['themoviedb_lookup']}> Lookup TheMovieDB Links
+                            </label>
+                            <p class="help-block">Enable to lookup links to TheMovieDB (and IMDb if needed) for movies and TV shows when available.</p>
+                        </div>
+                        <div class="checkbox">
+                            <label>
+                                <input type="checkbox" name="tvmaze_lookup" id="tvmaze_lookup" value="1" ${config['tvmaze_lookup']}> Lookup TVmaze Links
+                            </label>
+                            <p class="help-block">Enable to lookup links to TVmaze (and IMDb if needed) for TV shows when available.</p>
+                        </div>
+                        <div class="checkbox">
+                            <label>
+                                <input type="checkbox" name="musicbrainz_lookup" id="musicbrainz_lookup" value="1" ${config['musicbrainz_lookup']}> Lookup MusicBrainz Links
+                            </label>
+                            <p class="help-block">Enable to lookup links to MusicBrainz for music when available.</p>
+                        </div>
+                        <div class="form-group">
+                            <label for="delete_lookup_info">Delete Lookup Info</label>
+                            <p class="help-block">Delete all cached metadata lookup info in Tautulli.</p>
+                            <div class="row">
+                                <div class="col-md-9">
+                                    <div class="btn-group">
+                                        <button class="btn btn-form delete_all_lookups" type="button" data-service="themoviedb">TheMovieDB</button>
+                                        <button class="btn btn-form delete_all_lookups" type="button" data-service="tvmaze">TVmaze</button>
+                                        <button class="btn btn-form delete_all_lookups" type="button" data-service="musicbrainz">MusicBrainz</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <p><input type="button" class="btn btn-bright save-button" value="Save" data-success="Changes saved successfully"></p>
+
+                    </div>
+
                     <div role="tabpanel" class="tab-pane" id="tabs-import_backups">
 
                         <div class="padded-header">
                             <h3>Database Import</h3>
                         </div>
 
-                        <p class="help-block">Click a button below to import an existing database from another app.</p>
+                        <p class="help-block">Click a button below to import an existing database from the selected app.</p>
                         <div class="btn-group">
+                            <button class="btn btn-form toggle-app-import-modal" type="button" data-target="#app-import-modal" data-toggle="modal" data-app="tautulli">Tautulli</button>
                             <button class="btn btn-form toggle-app-import-modal" type="button" data-target="#app-import-modal" data-toggle="modal" data-app="plexwatch">PlexWatch</button>
                             <button class="btn btn-form toggle-app-import-modal" type="button" data-target="#app-import-modal" data-toggle="modal" data-app="plexivity">Plexivity</button>
                         </div>
@@ -1233,10 +1377,10 @@
                         </div>
 
                         <div class="form-group">
-                            <label for="log_dir">Log Directory</label>
+                            <label for="log_dir">Log Directory</label> ${docker_msg | n}
                             <div class="row">
                                 <div class="col-md-6">
-                                    <input type="text" class="form-control directory-settings" id="log_dir" name="log_dir" value="${config['log_dir']}">
+                                    <input type="text" class="form-control directory-settings" id="log_dir" name="log_dir" value="${config['log_dir']}" ${docker_setting}>
                                     <div class="btn-group">
                                         <button class="btn btn-form" type="button" id="clear_logs">Clear Logs</button>
                                     </div>
@@ -1244,10 +1388,10 @@
                             </div>
                         </div>
                         <div class="form-group">
-                            <label for="backup_dir">Backup Directory</label>
+                            <label for="backup_dir">Backup Directory</label> ${docker_msg | n}
                             <div class="row">
                                 <div class="col-md-6">
-                                    <input type="text" class="form-control directory-settings" id="backup_dir" name="backup_dir" value="${config['backup_dir']}">
+                                    <input type="text" class="form-control directory-settings" id="backup_dir" name="backup_dir" value="${config['backup_dir']}" ${docker_setting}>
                                     <div class="btn-group">
                                         <button class="btn btn-form" type="button" id="backup_config">Backup Config</button>
                                         <button class="btn btn-form" type="button" id="backup_database">Backup Database</button>
@@ -1256,10 +1400,10 @@
                             </div>
                         </div>
                         <div class="form-group">
-                            <label for="cache_dir">Cache Directory</label>
+                            <label for="cache_dir">Cache Directory</label> ${docker_msg | n}
                             <div class="row">
                                 <div class="col-md-6">
-                                    <input type="text" class="form-control directory-settings" id="cache_dir" name="cache_dir" value="${config['cache_dir']}">
+                                    <input type="text" class="form-control directory-settings" id="cache_dir" name="cache_dir" value="${config['cache_dir']}" ${docker_setting}>
                                     <div class="btn-group">
                                         <button class="btn btn-form" type="button" id="clear_cache">Clear All Cache</button>
                                         <button class="btn btn-form" type="button" id="clear_image_cache">Clear Image Cache</button>
@@ -1290,7 +1434,8 @@
                         <div class="form-group">
                             <label>Registered Devices</label>
                             <p class="help-block">Register a new device using a QR code, or configure an existing device by clicking the settings icon on the right.</p>
-                            <p id="app_api_msg" style="color: #eb8600;">The API must be enabled under <a data-tab-destination="tabs-web_interface" data-target="#api_enabled">Web Interface</a> to use the app.</p>
+                            <p id="app_api_msg" style="color: #eb8600;">Warning: The API must be enabled under <a data-tab-destination="web_interface" data-target="api_enabled">Web Interface</a> to use the app.</p>
+                            <br />
                             <div class="row">
                                 <div id="plexpy-mobile-devices-table" class="col-md-12">
                                     <div class='text-muted'><i class="fa fa-refresh fa-spin"></i> Loading registered devices...</div>
@@ -1308,6 +1453,7 @@
 </%def>
 
 <%def name="modalIncludes()">
+<div id="queue-modal" class="modal fade" tabindex="-1" role="dialog" aria-labelledby="queue-modal"></div>
 <div id="guidelines-modal" class="modal fade" tabindex="-1" role="dialog" aria-labelledby="guidelines-modal">
     <div class="modal-dialog" role="document">
         <div class="modal-content">
@@ -1523,7 +1669,7 @@
                     <div style="padding-bottom: 10px;">
                         <p class="help-block">
                             All text inside <span class="inline-pre">&lt;show&gt;&lt;/show&gt;</span>/<span class="inline-pre">&lt;season&gt;&lt;/season&gt;</span>/<span class="inline-pre">&lt;episode&gt;&lt;/episode&gt;</span>
-                            tags will only be sent when the media type is show/season/episode.
+                            tags will only be sent when the media type is show, season, or episode, respectively.
                         </p>
                         <p><strong style="color: #fff;">Example:</strong></p>
                         <pre>{show_name}&lt;season&gt; - Season {season_num}&lt;/season&gt;&lt;episode&gt; - S{season_num}E{episode_num} - {episode_name}&lt;/episode&gt; was recently added to Plex.</pre>
@@ -1534,7 +1680,7 @@
                     <div>
                         <p class="help-block">
                             All text inside <span class="inline-pre">&lt;artist&gt;&lt;/artist&gt;</span>/<span class="inline-pre">&lt;album&gt;&lt;/album&gt;</span>/<span class="inline-pre">&lt;track&gt;&lt;/track&gt;</span>
-                            tags will only be sent when the media type is artist/album/track.
+                            tags will only be sent when the media type is artist, album, or track, respectively.
                         </p>
                         <p><strong style="color: #fff;">Example:</strong></p>
                         <pre>{artist_name}&lt;album&gt; - {album_name}&lt;/album&gt;&lt;track&gt; - {album_name} - {track_name}&lt;/track&gt; was recently added to Plex.</pre>
@@ -1579,7 +1725,7 @@
                     <div>
                         <h4>List Slicing</h4>
                     </div>
-                    <div>
+                    <div style="padding-bottom: 10px;">
                         <p class="help-block">
                             Notification parameters which have a list of items can be sliced with a slice formatter <span class="inline-pre">:[X:Y]</span> to limit the number of items.
                             Note: the first item in the list is numbered <span class="inline-pre">0</span>.
@@ -1589,6 +1735,41 @@
 {actors:[:4]}  --> Only the first 4 actors (Actors: 0, 1, 2, 3)
 {actors:[2:]}  --> Only the 3rd to last actors (Actors: 2, 3, 4, ...)
 {actors:[1:5]} --> Only the 2nd to 5th actors (Actors: 1, 2, 3, 4)</pre>
+                    </div>
+                    <div>
+                        <h4>Prefix and Suffix</h4>
+                    </div>
+                    <div style="padding-bottom: 10px;">
+                        <p class="help-block">
+                            A prefix or a suffix can be added to the notification parameters using <span class="inline-pre">Prefix&lt;</span> and <span class="inline-pre">&gt;Suffix</span>.
+                            If the notification parameter is unavailable, the prefix or suffix will not be displayed.
+                        </p>
+                        <p><strong style="color: #fff;">Example:</strong></p>
+                        <pre>{rating}              --> 8.9
+{Rating: &lt;rating}     --> Rating: 8.9
+{rating&gt;/10}          --> 8.9/10
+{Rating: &lt;rating&gt;/10} --> Rating: 8.9/10</pre>
+                        <p><strong style="color: #fff;">Example with unavailable parameter:</strong></p>
+                        <pre>{rating}              -->
+Rating: {rating}/10   --> Rating: /10
+{Rating: &lt;rating&gt;/10} --> </pre>
+                    </div>
+                    <div>
+                        <h4>Combined</h4>
+                    </div>
+                    <div>
+                        <p class="help-block">
+                            If combining multiple notification text modifiers, the order of the modifiers must be:
+                        </p>
+                        <ol class="help-block">
+                            <li>Prefix</li>
+                            <li>Parameter</li>
+                            <li>Case Modifier</li>
+                            <li>List Slicing</li>
+                            <li>Suffix</li>
+                        </ol>
+                        <p><strong style="color: #fff;">Example:</strong></p>
+                        <pre>{Starring &lt;actors!c:[0]&gt; as the main character.} --> Starring Arnold Schwarzenegger as the main character.</pre>
                     </div>
                 </div>
             </div>
@@ -1611,7 +1792,7 @@
             <div class="modal-body">
                 <div>
                     <p class="help-block">
-                        If the value for a selected parameter cannot be provided, it will display as blank.
+                        If the value for a selected parameter is unavailable, it will display as blank.
                     </p>
                     % for category in common.NEWSLETTER_PARAMETERS:
                     <table class="notification-params">
@@ -1690,7 +1871,10 @@
                 <label>Instructions</label>
                 <p class="help-block">
                     Scan the QR code below with the Tautulli Android app to automatically register it with the server (make sure the Tautulli Address below is correct)
-                    or manually enter the connection info and device token into the app settings.
+                    or manually enter the connection info and device token into the app settings. This window will automatically close once device registration is successful.
+                </p>
+                <p class="help-block">
+                    Note: OneSignal.com must not be blocked (e.g. in Pi-hole) for device registration.
                 </p>
                 <label>QR Code</label>
                 <pre id="api_qr_code" style="text-align: center"></pre>
@@ -1718,6 +1902,38 @@
     </div>
 </div>
 <div id="mobile-device-config-modal" class="modal fade wide" tabindex="-1" role="dialog" aria-labelledby="mobile-device-config-modal"></div>
+<div id="browse-path-modal" class="modal fade" tabindex="-1" role="dialog" aria-labelledby="browse-path-modal">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal" aria-hidden="true"><i class="fa fa-remove"></i></button>
+                <h4 class="modal-title">File Browser</h4>
+            </div>
+            <div class="modal-body">
+                <div class="row">
+                    <div class="col-md-12">
+                        <div class="form-group">
+                            <label for="browse-path">Select a <span id="browse-path-type"></span> Below</label>
+                            <div class="row">
+                                <div class="col-md-12">
+                                    <input type="text" class="form-control" id="browse-path" name="browse-path" value="" size="30" disabled>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-12" style="height: 400px; overflow: auto;">
+                        <ul id="browse-path-list" class="stacked-configs list-unstyled">
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <span id="browse-path-status-message" style="padding-right: 25px;"></span>
+                <input type="button" id="select-browse-file" class="btn btn-bright" value="Select">
+            </div>
+        </div>
+    </div>
+</div>
 </%def>
 
 <%def name="javascriptIncludes()">
@@ -1734,11 +1950,6 @@
             async: true,
             complete: function(xhr, status) {
                 $("#plexpy-configuration-table").html(xhr.responseText);
-                if ("${kwargs.get('install_geoip')}" == 'true') {
-                    $('#install_geoip_db').removeClass('no-highlight').css('color','#e9a049');
-                } else if ("${kwargs.get('reinstall_geoip')}" == 'true') {
-                    $('#reinstall_geoip_db').removeClass('no-highlight').css('color','#e9a049');
-                }
             }
         });
     }
@@ -1829,6 +2040,38 @@
         });
     }
 
+    function browsePath(key, path, filter_ext) {
+        $("#browse-path-status-message").html('<i class="fa fa-fw fa-spin fa-refresh"></i>');
+        getBrowsePath(key, path, filter_ext).then(function (data) {
+            if (data.result === 'error') {
+                $("#browse-path-status-message").html("<i class='fa fa-exclamation-triangle'></i> " + data.message);
+            } else {
+                $("#browse-path-status-message").html("");
+
+                $('#browse-path').val(data.path);
+                var browse_list = $('#browse-path-list');
+                browse_list.parent().animate({ scrollTop: 0 }, 0);
+                browse_list.empty();
+
+                $.each(data.data, function(i, item) {
+                    var browse_item = $('<li/>')
+                        .html("<span><i class='fa fa-fw fa-" + item.icon + "'></i>&nbsp; " + item.title + "</span>")
+                        .addClass(item.type + ' pointer')
+                        .data('key', item.key)
+                        .data('path', item.path)
+                        .appendTo(browse_list)
+                });
+
+                $('#browse-path-list li').click(function (){
+                    $('#browse-path').val($(this).data('path'));
+                    if ($(this).hasClass('folder')) {
+                        browsePath($(this).data('key'), null, filter_ext)
+                    }
+                });
+            }
+        });
+    }
+
 $(document).ready(function() {
 
     // Javascript to enable link to tab
@@ -1859,12 +2102,10 @@ $(document).ready(function() {
     }
 
     function preSaveChecks(_callback) {
-        if (serverChanged) {
-            verifyServer();
-        }
         verifyPMSWebURL();
-
-        if (_callback) {
+        if (serverChanged) {
+            verifyServer(_callback);
+        } else if (typeof _callback === "function") {
             _callback();
         }
     }
@@ -1889,12 +2130,13 @@ $(document).ready(function() {
         settingsChanged = true;
     });
 
-    function saveSettings() {
+    function saveSettings(showMsg, _callback) {
         if (configForm.parsley().validate()) {
-            doAjaxCall('configUpdate', $(this), 'tabs', true, true, postSaveChecks);
-            return false;
+            doAjaxCall('configUpdate', $(this), 'tabs', true, showMsg, _callback);
+            return true;
         } else {
-            showMsg('<i class="fa fa-exclamation-circle"></i> Please verify your settings.', false, true, 5000, true)
+            showMsg('<i class="fa fa-exclamation-circle"></i> Please verify your settings.', false, true, 5000, true);
+            return false;
         }
     }
 
@@ -1908,7 +2150,7 @@ $(document).ready(function() {
     }
 
     $('.save-button').click(function() {
-        preSaveChecks(function () { saveSettings() });
+        preSaveChecks(function () { saveSettings(true, postSaveChecks) });
     });
 
     initConfigCheckbox('#api_enabled');
@@ -1916,6 +2158,7 @@ $(document).ready(function() {
     initConfigCheckbox('#https_create_cert');
     initConfigCheckbox('#check_github');
     initConfigCheckbox('#monitor_pms_updates');
+    initConfigCheckbox('#monitor_remote_access');
     initConfigCheckbox('#newsletter_self_hosted');
 
     $('#menu_link_shutdown').click(function() {
@@ -2009,8 +2252,14 @@ $(document).ready(function() {
     });
 
     $("#delete_temp_sessions").click(function () {
-        var msg = 'Are you sure you want to flush the temporary sessions?<br /><strong>This will reset all currently active sessions.</strong>';
+        var msg = 'Are you sure you want to flush the temporary sessions?<br /><br /><strong>This will reset all currently active sessions.</strong>';
         var url = 'delete_temp_sessions';
+        confirmAjaxCall(url, msg);
+    });
+
+    $("#delete_recently_added").click(function () {
+        var msg = 'Are you sure you want to flush the recently added items?<br /><br /><strong>This will reset all recently added notifications.</strong>';
+        var url = 'delete_recently_added';
         confirmAjaxCall(url, msg);
     });
 
@@ -2032,6 +2281,17 @@ $(document).ready(function() {
                 window.location.href = 'checkout_git_branch?git_remote=' + new_remote + '&git_branch=' + new_branch;
             });
         }
+    });
+
+    $("#reset_git_install").click(function () {
+        var msg = 'Are you sure you want to reset your Tautulli installtion back to <strong>${common.RELEASE}</strong>?' +
+                '<br /><br />Tautulli will restart.';
+        $('#confirm-message').html(msg);
+        $('#confirm-modal').modal();
+        $('#confirm-modal').one('click', '#confirm-button', function () {
+            settingsChanged = false;
+            window.location.href = 'reset_git_install';
+        });
     });
 
     $('#api_key').click(function(){ $('#api_key').select() });
@@ -2084,7 +2344,7 @@ $(document).ready(function() {
                 if (!item.label) {
                     $.extend(item,
                         $(this.revertSettings.$children)
-                             .filter('[value=' + item.value + ']').data()
+                             .filter('[value="' + item.value + '"]').data()
                     );
                 }
                 var label = item.label || item.value;
@@ -2217,6 +2477,7 @@ $(document).ready(function() {
 
         if (($("#pms_ip").val() !== '') || ($("#pms_port").val() !== '')) {
             $("#pms_verify").html('<i class="fa fa-refresh fa-spin"></i>').fadeIn('fast');
+            showMsg('Verifying Plex server...', true, true, 10000, false);
             $.ajax({
                 url: 'get_server_id',
                 data: {
@@ -2254,10 +2515,11 @@ $(document).ready(function() {
                         } else {
                             $("#pms_verify").html('<i class="fa fa-check"></i>').fadeIn('fast');
                             $("#pms_ip_group").removeClass("has-error");
+                            showMsg('<i class="fa fa-check"></i> Server verified.', false, true, 5000);
                             serverChanged = false;
                         }
 
-                        if (_callback) {
+                        if (typeof _callback === "function") {
                             _callback();
                         }
                     } else {
@@ -2293,7 +2555,6 @@ $(document).ready(function() {
     }
     function OAuthSuccessCallback(authToken) {
         $("#pms_token").val(authToken);
-        $("#pms_uuid").val(x_plex_headers['X-Plex-Client-Identifier']);
         $("#token_verify").html('<i class="fa fa-check"></i>').fadeIn('fast');
         getServerOptions(authToken);
     }
@@ -2408,6 +2669,7 @@ $(document).ready(function() {
             for (var i in libraries_list) {
                 var title = libraries_list[i].section_name;
                 var key = libraries_list[i].section_id;
+                if (key === 999999) { continue; }  // Don't show Live TV library
                 $('#sortable_home_library_cards').append(
                     '<li class="card card-sortable">' + 
                         '<div class="card-handle"><i class="fa fa-bars"></i></div>' + 
@@ -2521,8 +2783,10 @@ $(document).ready(function() {
                     .prop('selected', selected));
             }
 
+            var download_url = 'https://plex.tv/api/downloads/' + (plex_update_channel === 'plexpass' ? '5' : '1') + '.json?channel=' + plex_update_channel;
+
             $.ajax({
-                url: 'https://plex.tv/api/downloads/1.json?channel=' + plex_update_channel,
+                url: download_url,
                 type: 'GET',
                 dataType: 'json',
                 beforeSend: function (xhr) {
@@ -2655,9 +2919,20 @@ $(document).ready(function() {
         var name = image_hosting_option.text();
 
         var msg = 'Are you sure you want to delete all uploaded images on <strong>' + name + '</strong>?' +
-            '<br />All previous links to the images will no longer work. This cannot be undone!';
+            '<br /><br />All previous links to the images will no longer work. This cannot be undone!';
         var url = 'delete_hosted_images';
         var data = { service: name, delete_all: true };
+        confirmAjaxCall(url, msg, data, false);
+    });
+
+    $('body').on('click', '.delete_all_lookups', function () {
+        var service = $(this).data('service');
+        var name = $(this).text();
+
+        var msg = 'Are you sure you want to delete all the metadata lookup info from <strong>' + name + '</strong>?' +
+            '<br /><br />Tautulli will lookup the metadata info again the next time a notification is sent.';
+        var url = 'delete_lookup_info';
+        var data = { service: service, delete_all: true };
         confirmAjaxCall(url, msg, data, false);
     });
 
@@ -2708,24 +2983,72 @@ $(document).ready(function() {
 
     $('#allow_guest_access').click(function () {
         newsletterPasswordEnabled();
-    })
+    });
+
+    function gotoSetting(tab, setting){
+        $("a[href=#tabs-" + tab + "]").click();
+        if (setting) {
+            _setting = '#' + setting;
+            if ($(_setting).closest('.advanced-setting').length && !$('#menu_link_show_advanced_settings').hasClass('active')) {
+                $('#menu_link_show_advanced_settings').click()
+            }
+            var body_container = $('.body-container');
+            var scroll_pos = setting ? body_container.scrollTop() + $(_setting).offset().top - 100 : 0;
+            body_container.animate({scrollTop: scroll_pos});
+            $(_setting).closest('.form-group, .checkbox').delay(500).fadeOut().fadeIn('slow').fadeOut().fadeIn('slow');
+        }
+    }
 
     $('body').on('click', 'a[data-tab-destination]', function () {
         var tab = $(this).data('tab-destination');
-        $("a[href=#" + tab + "]").click();
-        var scroll_destination = $(this).data('target');
-        if (scroll_destination) {
-            if ($(scroll_destination).closest('.advanced-setting').length && !$('#menu_link_show_advanced_settings').hasClass('active')) {
-                $('#menu_link_show_advanced_settings').click()
-            }
-            var body_container = $('.body-container')
-            var scroll_pos = scroll_destination ? body_container.scrollTop() + $(scroll_destination).offset().top - 100 : 0;
-            body_container.animate({scrollTop: scroll_pos});
-        }
+        var setting = $(this).data('target');
+        gotoSetting(tab, setting)
     });
 
     $('#resources-xml').on('tripleclick', function () {
         openPlexXML('/api/resources', true, {includeHttps: 1});
+    });
+
+    var tautulli_news = $('#tautulli-news')
+    $.ajax({
+        url: 'https://tautulli.com/news/tautulli-news.json',
+        type: 'GET',
+        dataType: 'json',
+        cache: false,
+        async: true,
+        success: function (data) {
+            if (data) {
+                var now = moment().endOf('day');
+                var news = $('<ul/>').addClass('accordion list-unstyled')
+                $.each(data, function (index, news_item) {
+                    var date = moment(news_item.date, "YYYY-MM-DD");
+                    if (index >= 5) { return false; }
+                    var header = $('<div/>').addClass('link').html(
+                        '<span class="toggle-left"><i class="fa fa-newspaper fa-fw"></i></span>' +
+                        '<span class="news-title">' + news_item.title + '</span>' +
+                        '<span class="toggle-right"><i class="fa fa-chevron-down fa-fw"></i></span>' +
+                        '<span class="news-date toggle-right">' + date.format($('#date_format').val()) + '</span>');
+                    var subtitle = $('<span/>').addClass('news-subtitle').html(news_item.subtitle);
+                    var body = $('<span/>').addClass('news-body').html(news_item.body);
+                    var content = $('<div/>').addClass('submenu');
+                    if (news_item.subtitle) { content.append(subtitle); }
+                    content.append(body);
+                    var li = $('<li/>').append(header).append(content)
+                    if (index === 0 && Math.abs(now.diff(date, 'days')) < 7) {
+                        li.addClass('open');
+                        content.css('display', 'block');
+                    }
+                    news.append(li)
+                });
+                tautulli_news.html(news);
+                var accordion_news = new Accordion(news, false);
+            } else {
+                tautulli_news.html('<p class="help-block"><i class="fa fa-check"></i>&nbsp; No news available.</p>')
+            }
+        },
+        error: function () {
+            tautulli_news.html('<p class="help-block"><i class="fa fa-exclamation-triangle"></i>&nbsp; Failed to retrieve news.</p>')
+        }
     });
 });
 </script>

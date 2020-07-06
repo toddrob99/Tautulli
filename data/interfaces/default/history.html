@@ -8,6 +8,13 @@
 
 <%def name="body()">
 <div class='container-fluid'>
+    % if config['database_is_importing']:
+    <div style="text-align: center; margin-top: 20px;">
+        <i class="fa fa-refresh fa-spin"></i>&nbsp; Tautulli is importing history from another database. This could take a few minutes depending on the size of your database.
+        <br />
+        You may leave this page and check back later.
+    </div>
+    % endif
     <div class='table-card-header'>
         <div class="header-bar">
             <span><i class="fa fa-history"></i> History</span>
@@ -32,17 +39,20 @@
             </div>
             % endif
             <div class="btn-group" data-toggle="buttons" id="media_type-selection">
-                <label class="btn btn-dark active">
-                    <input type="radio" name="media_type-filter" id="history-all" value="" autocomplete="off"> All
+                <label class="btn btn-dark">
+                    <input type="radio" name="media_type-filter" id="history-all" value="all" autocomplete="off"> All
                 </label>
                 <label class="btn btn-dark">
-                    <input type="radio" name="media_type-filter" id="history-movies" value="movie" autocomplete="off"> Movies
+                    <input type="radio" name="media_type-filter" id="history-movie" value="movie" autocomplete="off"> Movies
                 </label>
                 <label class="btn btn-dark">
-                    <input type="radio" name="media_type-filter" id="history-tv_shows" value="episode" autocomplete="off"> TV Shows
+                    <input type="radio" name="media_type-filter" id="history-episode" value="episode" autocomplete="off"> TV Shows
                 </label>
                 <label class="btn btn-dark">
-                    <input type="radio" name="media_type-filter" id="history-music" value="track" autocomplete="off"> Music
+                    <input type="radio" name="media_type-filter" id="history-track" value="track" autocomplete="off"> Music
+                </label>
+                <label class="btn btn-dark">
+                    <input type="radio" name="media_type-filter" id="history-live" value="live" autocomplete="off"> Live TV
                 </label>
             </div>
             <div class="btn-group">
@@ -60,7 +70,8 @@
                 <th align="left" id="friendly_name">User</th>
                 <th align="left" id="ip_address">IP Address</th>
                 <th align="left" id="platform">Platform</th>
-                <th align="left" id="device">Player</th>
+                <th align="left" id="product">Product</th>
+                <th align="left" id="player">Player</th>
                 <th align="left" id="title">Title</th>
                 <th align="left" id="started">Started</th>
                 <th align="left" id="paused_counter">Paused</th>
@@ -143,7 +154,7 @@
             var colvis = new $.fn.dataTable.ColVis(history_table, {
                 buttonText: '<i class="fa fa-columns"></i> Select columns',
                 buttonClass: 'btn btn-dark',
-                exclude: [0, 11]
+                exclude: [0, 12]
             });
             $(colvis.button()).appendTo('div.colvis-button-bar');
 
@@ -154,6 +165,7 @@
                 selected_filter = $('input[name=media_type-filter]:checked', '#media_type-selection');
                 $(selected_filter).closest('label').addClass('active');
                 media_type = $(selected_filter).val();
+                setLocalStorage('history_media_type', media_type);
                 history_table.draw();
             });
 
@@ -163,8 +175,12 @@
             });
         }
 
-        var media_type = null;
+        var media_type = getLocalStorage('history_media_type', 'all');
         var selected_user_id = "${_session['user_group']}" == "admin" ? null : "${_session['user_id']}";
+
+        $('#history-' + media_type).prop('checked', true);
+        $('#history-' + media_type).closest('label').addClass('active');
+
         loadHistoryTable(media_type, selected_user_id);
 
         % if _session['user_group'] == 'admin':
@@ -176,19 +192,17 @@
                     $('#deleteCount').text(history_to_delete.length);
                     $('#confirm-modal-delete').modal();
                     $('#confirm-modal-delete').one('click', '#confirm-delete', function () {
-                        history_to_delete.forEach(function(row, idx) {
-                            $.ajax({
-                                url: 'delete_history_rows',
-                                type: 'POST',
-                                data: { row_id: row },
-                                async: true,
-                                success: function (data) {
-                                    var msg = "History deleted";
-                                    showMsg(msg, false, true, 2000);
-                                }
-                            });
+                        $.ajax({
+                            url: 'delete_history_rows',
+                            type: 'POST',
+                            data: { row_ids: history_to_delete.join(',') },
+                            async: true,
+                            success: function (data) {
+                                var msg = "History deleted";
+                                showMsg(msg, false, true, 2000);
+                                history_table.draw();
+                            }
                         });
-                        history_table.draw();
                     });
                 }
 

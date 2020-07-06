@@ -35,10 +35,14 @@ DOCUMENTATION :: END
 
 <%def name="body()">
 % if data:
+<%
+    from plexpy.common import LIVE_TV_SECTION_ID
+    from plexpy.helpers import page
+%>
 <div class="container-fluid">
     <div class="row">
         % if data['library_art']:
-        <div class="art-face" style="background-image:url(pms_image_proxy?img=${data['library_art']}&width=1920&height=1080)"></div>
+        <div class="art-face" style="background-image:url(${page('pms_image_proxy', data['library_art'], None, 1920, 1080)})"></div>
         % if _session['user_group'] == 'admin':
         <span class="overlay-refresh-image info-art" title="Refresh background image"><i class="fa fa-refresh refresh_pms_image"></i></span>
         % endif
@@ -57,10 +61,22 @@ DOCUMENTATION :: END
                 <div class="col-md-12">
                     <div class="table-card-back">
                         <div class="user-info-wrapper">
-                            % if data['library_thumb'][:4] == 'http' or data['library_thumb'][:10] == 'interfaces':
-                            <div class="library-info-poster-face" style="background-image: url(${data['library_thumb']});"></div>
+                            % if data['library_thumb'].startswith('http'):
+                            <div class="library-info-poster-face" style="background-image: url(${page('pms_image_proxy', data['library_thumb'], None, 80, 80)});">
+                                % if not data['is_active']:
+                                <span class="inactive-library-tooltip" data-toggle="tooltip" title="Library not on Plex server">
+                                    <i class="fa fa-2x fa-exclamation-triangle"></i>
+                                </span>
+                                % endif
+                            </div>
                             % else:
-                            <div class="library-info-poster-face svg-icon library-${data['section_type']}"></div>
+                            <div class="library-info-poster-face svg-icon library-${data['section_type']}">
+                                % if not data['is_active']:
+                                <span class="inactive-library-tooltip" data-toggle="tooltip" title="Library not on Plex server">
+                                    <i class="fa fa-2x fa-exclamation-triangle"></i>
+                                </span>
+                                % endif
+                            </div>
                             % endif
                             <div class="user-info-username">
                                 <span class="set-username">${data['section_name']}</span>
@@ -75,7 +91,9 @@ DOCUMENTATION :: END
                                     <li class="active"><a href="#tabs-profile" role="tab" data-toggle="tab">Profile</a></li>
                                     <li><a id="history-tab-btn" href="#tabs-history" role="tab" data-toggle="tab">History</a></li>
                                     % if _session['user_group'] == 'admin':
+                                    % if data['section_id'] != LIVE_TV_SECTION_ID:
                                     <li><a id="media-info-tab-btn" href="#tabs-mediainfo" role="tab" data-toggle="tab">Media Info</a></li>
+                                    % endif
                                     % endif
                                 </ul>
                             </div>
@@ -143,6 +161,7 @@ DOCUMENTATION :: END
                                 </div>
                             </div>
                         </div>
+                        % if data['section_id'] != LIVE_TV_SECTION_ID:
                         <div class="container-fluid">
                             <div class="row">
                                 <div class="col-md-12">
@@ -168,6 +187,7 @@ DOCUMENTATION :: END
                                 </div>
                             </div>
                         </div>
+                        % endif
                     </div>
                     <div role="tabpanel" class="tab-pane" id="tabs-history">
                         <div class="container-fluid">
@@ -205,6 +225,7 @@ DOCUMENTATION :: END
                                                     <th align="left" id="friendly_name">User</th>
                                                     <th align="left" id="ip_address">IP Address</th>
                                                     <th align="left" id="platform">Platform</th>
+                                                    <th align="left" id="product">Product</th>
                                                     <th align="left" id="player">Player</th>
                                                     <th align="left" id="title">Title</th>
                                                     <th align="left" id="started">Started</th>
@@ -230,9 +251,9 @@ DOCUMENTATION :: END
                                     % else:
                                     <div id="get_file_sizes_message" style="text-align: center; margin-top: 20px; display: none;">
                                     % endif
-                                        <i class="fa fa-refresh fa-spin"></i> Tautulli is calculating the file sizes for the library's media info. This could take a few minutes depending on the size of your library.
+                                        <i class="fa fa-refresh fa-spin"></i>&nbsp; Tautulli is calculating the file sizes for the library's media info. This could take a few minutes depending on the size of your library.
                                         <br />
-                                        You may leave this page and come back later.
+                                        You may leave this page and check back later.
                                     </div>
                                     <div class='table-card-header'>
                                         <div class="header-bar">
@@ -347,6 +368,7 @@ DOCUMENTATION :: END
 <script src="${http_root}js/dataTables.bootstrap.min.js"></script>
 <script src="${http_root}js/dataTables.bootstrap.pagination.js"></script>
 % if data:
+<% from plexpy.common import LIVE_TV_SECTION_ID %>
 <script>
     % if str(data['section_id']).isdigit():
     var section_id = ${data['section_id']};
@@ -385,7 +407,7 @@ DOCUMENTATION :: END
         };
         history_table = $('#history_table-SID-${data["section_id"]}').DataTable(history_table_options);
 
-        var colvis = new $.fn.dataTable.ColVis(history_table, { buttonText: '<i class="fa fa-columns"></i> Select columns', buttonClass: 'btn btn-dark', exclude: [0, 11] });
+        var colvis = new $.fn.dataTable.ColVis(history_table, { buttonText: '<i class="fa fa-columns"></i> Select columns', buttonClass: 'btn btn-dark', exclude: [0, 12] });
         $(colvis.button()).appendTo('#button-bar-history');
 
         clearSearchButton('history_table-SID-${data["section_id"]}', history_table);
@@ -400,6 +422,8 @@ DOCUMENTATION :: END
     $("#refresh-history-list").click(function () {
         history_table.draw();
     });
+
+    $(".inactive-library-tooltip").tooltip();
 
     % if _session['user_group'] == 'admin':
     function loadMediaInfoTable() {
@@ -461,19 +485,17 @@ DOCUMENTATION :: END
                 $('#deleteCount').text(history_to_delete.length);
                 $('#confirm-modal-delete').modal();
                 $('#confirm-modal-delete').one('click', '#confirm-delete', function () {
-                    history_to_delete.forEach(function(row, idx) {
-                        $.ajax({
-                            url: 'delete_history_rows',
-                            type: 'POST',
-                            data: { row_id: row },
-                            async: true,
-                            success: function (data) {
-                                var msg = "History deleted";
-                                showMsg(msg, false, true, 2000);
-                            }
-                        });
+                    $.ajax({
+                        url: 'delete_history_rows',
+                        type: 'POST',
+                        data: { row_ids: history_to_delete.join(',') },
+                        async: true,
+                        success: function (data) {
+                            var msg = "History deleted";
+                            showMsg(msg, false, true, 2000);
+                            history_table.draw();
+                        }
                     });
-                    history_table.draw();
                 });
             }
 
@@ -525,7 +547,9 @@ DOCUMENTATION :: END
     }
 
     recentlyWatched();
+    % if data['section_id'] != LIVE_TV_SECTION_ID:
     recentlyAdded();
+    % endif
 
     function highlightWatchedScrollerButton() {
         var scroller = $("#recently-watched-row-scroller");

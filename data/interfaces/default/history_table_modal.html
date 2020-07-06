@@ -6,7 +6,7 @@
             <h4 class="modal-title" id="myModalLabel">
                 <strong><span id="modal_header_ip_address">
                     % if data.get('media_type'):
-                    <% h = {'episode': 'TV Show', 'track': 'Music'} %>
+                    <% h = {'episode': 'TV Show', 'track': 'Music', 'live': 'Live TV'} %>
                     <i class="fa fa-history"></i> ${h.get(data['media_type'], data['media_type'].title())} History for <span id="date-header">${data['start_date']}</span>
                     % elif data.get('transcode_decision'):
                     <% h = {'copy': 'Direct Stream'} %>
@@ -26,6 +26,7 @@
                     <th align="left" id="friendly_name">User</th>
                     <th align="left" id="ip_address">IP Address</th>
                     <th align="left" id="platform">Platform</th>
+                    <th align="left" id="product">Product</th>
                     <th align="left" id="device">Player</th>
                     <th align="left" id="title">Title</th>
                     <th align="left" id="started">Started</th>
@@ -54,14 +55,14 @@
                     json_data: JSON.stringify(d),
                     user_id: "${data['user_id']}",
                     start_date: "${data['start_date']}",
-                    media_type: "${data.get('media_type')}",
+                    media_type: "${data.get('media_type') or 'all'}",
                     transcode_decision: "${data.get('transcode_decision')}"
                 };
             }
         };
 
         history_table = $('#history_table_modal').DataTable(history_table_options);
-        history_table.columns([0, 3, 4, 8, 10, 11]).visible(false);
+        history_table.columns([0, 3, 4, 5, 9, 11, 12]).visible(false);
 
         clearSearchButton('history_table_modal', history_table);
 

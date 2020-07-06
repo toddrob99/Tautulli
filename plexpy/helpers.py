@@ -1,4 +1,6 @@
-﻿#  This file is part of Tautulli.
+﻿# -*- coding: utf-8 -*-
+
+#  This file is part of Tautulli.
 #
 #  Tautulli is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -13,6 +15,13 @@
 #  You should have received a copy of the GNU General Public License
 #  along with Tautulli.  If not, see <http://www.gnu.org/licenses/>.
 
+from __future__ import division
+from __future__ import unicode_literals
+
+from future.builtins import zip
+from future.builtins import str
+
+import arrow
 import base64
 import cloudinary
 from cloudinary.api import delete_resources_by_tag
@@ -20,32 +29,38 @@ from cloudinary.uploader import upload
 from cloudinary.utils import cloudinary_url
 import datetime
 from functools import wraps
-import geoip2.database, geoip2.errors
-import gzip
 import hashlib
 import imghdr
-from itertools import izip_longest
-import ipwhois, ipwhois.exceptions, ipwhois.utils
+from future.moves.itertools import zip_longest
+import ipwhois
+import ipwhois.exceptions
+import ipwhois.utils
 from IPy import IP
 import json
 import math
-import maxminddb
-from operator import itemgetter
 import os
 import re
 import shlex
 import socket
+import string
 import sys
 import time
 import unicodedata
-import urllib, urllib2
+from future.moves.urllib.parse import urlencode
 from xml.dom import minidom
 import xmltodict
 
 import plexpy
-import logger
-import request
-from plexpy.api2 import API2
+if plexpy.PYTHON2:
+    import common
+    import logger
+    import request
+    from api2 import API2
+else:
+    from plexpy import common
+    from plexpy import logger
+    from plexpy import request
+    from plexpy.api2 import API2
 
 
 def addtoapi(*dargs, **dkwargs):
@@ -80,20 +95,6 @@ def addtoapi(*dargs, **dkwargs):
         return wrapper
 
     return rd
-
-
-def multikeysort(items, columns):
-    comparers = [((itemgetter(col[1:].strip()), -1) if col.startswith('-') else (itemgetter(col.strip()), 1)) for col in columns]
-
-    def comparer(left, right):
-        for fn, mult in comparers:
-            result = cmp(fn(left), fn(right))
-            if result:
-                return mult * result
-        else:
-            return 0
-
-    return sorted(items, cmp=comparer)
 
 
 def checked(variable):
@@ -158,7 +159,7 @@ def latinToAscii(unicrap):
 
 def convert_milliseconds(ms):
 
-    seconds = ms / 1000
+    seconds = ms // 1000
     gmtime = time.gmtime(seconds)
     if seconds > 3600:
         minutes = time.strftime("%H:%M:%S", gmtime)
@@ -200,6 +201,10 @@ def convert_seconds_to_minutes(s):
     return 0
 
 
+def timestamp():
+    return int(time.time())
+
+
 def today():
     today = datetime.date.today()
     yyyymmdd = datetime.date.isoformat(today)
@@ -219,15 +224,30 @@ def utc_now_iso():
     return utcnow.isoformat()
 
 
+def timestamp_to_YMD(timestamp):
+    return timestamp_to_datetime(timestamp).strftime("%Y-%m-%d")
+
+
+def timestamp_to_datetime(timestamp):
+    return datetime.datetime.fromtimestamp(cast_to_int(str(timestamp)))
+
+
+def iso_to_YMD(iso):
+    return iso_to_datetime(iso).strftime("%Y-%m-%d")
+
+
+def iso_to_datetime(iso):
+    return arrow.get(iso).datetime
+
+
 def human_duration(s, sig='dhms'):
 
     hd = ''
 
     if str(s).isdigit() and s > 0:
-        d = int(s / 86400)
-        h = int((s % 86400) / 3600)
-        m = int(((s % 86400) % 3600) / 60)
-        s = int(((s % 86400) % 3600) % 60)
+        d, h = divmod(s, 86400)
+        h, m = divmod(h, 3600)
+        m, s = divmod(m, 60)
 
         hd_list = []
         if sig >= 'd' and d > 0:
@@ -252,6 +272,14 @@ def human_duration(s, sig='dhms'):
     return hd
 
 
+def format_timedelta_Hms(td):
+    s = td.total_seconds()
+    hours = s // 3600
+    minutes = (s % 3600) // 60
+    seconds = s % 60
+    return '{:02d}:{:02d}:{:02d}'.format(int(hours), int(minutes), int(seconds))
+
+
 def get_age(date):
 
     try:
@@ -269,7 +297,7 @@ def get_age(date):
 
 def bytes_to_mb(bytes):
 
-    mb = int(bytes) / 1048576
+    mb = float(bytes) / 1048576
     size = '%.1f MB' % mb
     return size
 
@@ -310,7 +338,7 @@ def replace_all(text, dic, normalize=False):
     if not text:
         return ''
 
-    for i, j in dic.iteritems():
+    for i, j in dic.items():
         if normalize:
             try:
                 if sys.platform == 'darwin':
@@ -412,25 +440,32 @@ def create_https_certificates(ssl_cert, ssl_key):
 
     This code is stolen from SickBeard (http://github.com/midgetspy/Sick-Beard).
     """
-    from OpenSSL import crypto
+    try:
+        from OpenSSL import crypto
+    except ImportError:
+        logger.error("Unable to generate self-signed certificates: Missing OpenSSL module.")
+        return False
     from certgen import createKeyPair, createSelfSignedCertificate, TYPE_RSA
 
-    serial = int(time.time())
+    issuer = common.PRODUCT
+    serial = timestamp()
+    not_before = 0
+    not_after = 60 * 60 * 24 * 365 * 10  # ten years
     domains = ['DNS:' + d.strip() for d in plexpy.CONFIG.HTTPS_DOMAIN.split(',') if d]
     ips = ['IP:' + d.strip() for d in plexpy.CONFIG.HTTPS_IP.split(',') if d]
-    altNames = ','.join(domains + ips)
+    alt_names = ','.join(domains + ips).encode('utf-8')
 
     # Create the self-signed Tautulli certificate
-    logger.debug(u"Generating self-signed SSL certificate.")
+    logger.debug("Generating self-signed SSL certificate.")
     pkey = createKeyPair(TYPE_RSA, 2048)
-    cert = createSelfSignedCertificate(("Tautulli", pkey), serial, (0, 60 * 60 * 24 * 365 * 10), altNames) # ten years
+    cert = createSelfSignedCertificate(issuer, pkey, serial, not_before, not_after, alt_names)
 
     # Save the key and certificate to disk
     try:
         with open(ssl_cert, "w") as fp:
-            fp.write(crypto.dump_certificate(crypto.FILETYPE_PEM, cert))
+            fp.write(crypto.dump_certificate(crypto.FILETYPE_PEM, cert).decode('utf-8'))
         with open(ssl_key, "w") as fp:
-            fp.write(crypto.dump_privatekey(crypto.FILETYPE_PEM, pkey))
+            fp.write(crypto.dump_privatekey(crypto.FILETYPE_PEM, pkey).decode('utf-8'))
     except IOError as e:
         logger.error("Error creating SSL key and certificate: %s", e)
         return False
@@ -522,11 +557,28 @@ def process_json_kwargs(json_kwargs):
     return params
 
 
-def sanitize(string):
-    if string:
-        return unicode(string).replace('<','&lt;').replace('>','&gt;')
+def sanitize_out(*dargs, **dkwargs):
+    """ Helper decorator that sanitized the output
+    """
+    def rd(function):
+        @wraps(function)
+        def wrapper(*args, **kwargs):
+            return sanitize(function(*args, **kwargs))
+        return wrapper
+    return rd
+
+
+def sanitize(obj):
+    if isinstance(obj, str):
+        return str(obj).replace('<', '&lt;').replace('>', '&gt;')
+    elif isinstance(obj, list):
+        return [sanitize(o) for o in obj]
+    elif isinstance(obj, dict):
+        return {k: sanitize(v) for k, v in obj.items()}
+    elif isinstance(obj, tuple):
+        return tuple(sanitize(list(obj)))
     else:
-        return ''
+        return obj
 
 
 def is_public_ip(host):
@@ -540,12 +592,12 @@ def get_ip(host):
     ip_address = ''
     if is_valid_ip(host):
         return host
-    else:
+    elif not re.match(r'^[0-9]+(?:\.[0-9]+){3}(?!\d*-[a-z0-9]{6})$', host):
         try:
             ip_address = socket.getaddrinfo(host, None)[0][4][0]
-            logger.debug(u"IP Checker :: Resolved %s to %s." % (host, ip_address))
+            logger.debug("IP Checker :: Resolved %s to %s." % (host, ip_address))
         except:
-            logger.error(u"IP Checker :: Bad IP or hostname provided.")
+            logger.error("IP Checker :: Bad IP or hostname provided: %s." % host)
     return ip_address
 
 
@@ -556,120 +608,6 @@ def is_valid_ip(address):
         return False
     except ValueError:
         return False
-
-
-def install_geoip_db():
-    maxmind_url = 'http://geolite.maxmind.com/download/geoip/database/'
-    geolite2_gz = 'GeoLite2-City.mmdb.gz'
-    geolite2_md5 = 'GeoLite2-City.md5'
-    geolite2_db = geolite2_gz[:-3]
-    md5_checksum = ''
-
-    temp_gz = os.path.join(plexpy.CONFIG.CACHE_DIR, geolite2_gz)
-    geolite2_db = plexpy.CONFIG.GEOIP_DB or os.path.join(plexpy.DATA_DIR, geolite2_db)
-
-    # Retrieve the GeoLite2 gzip file
-    logger.debug(u"Tautulli Helpers :: Downloading GeoLite2 gzip file from MaxMind...")
-    try:
-        maxmind = urllib.URLopener()
-        maxmind.retrieve(maxmind_url + geolite2_gz, temp_gz)
-        md5_checksum = urllib2.urlopen(maxmind_url + geolite2_md5).read()
-    except Exception as e:
-        logger.error(u"Tautulli Helpers :: Failed to download GeoLite2 gzip file from MaxMind: %s" % e)
-        return False
-
-    # Extract the GeoLite2 database file
-    logger.debug(u"Tautulli Helpers :: Extracting GeoLite2 database...")
-    try:
-        with gzip.open(temp_gz, 'rb') as gz:
-            with open(geolite2_db, 'wb') as db:
-                db.write(gz.read())
-    except Exception as e:
-        logger.error(u"Tautulli Helpers :: Failed to extract the GeoLite2 database: %s" % e)
-        return False
-
-    # Check MD5 hash for GeoLite2 database file
-    logger.debug(u"Tautulli Helpers :: Checking MD5 checksum for GeoLite2 database...")
-    try:
-        hash_md5 = hashlib.md5()
-        with open(geolite2_db, 'rb') as f:
-            for chunk in iter(lambda: f.read(4096), b""):
-                hash_md5.update(chunk)
-        md5_hash = hash_md5.hexdigest()
-
-        if md5_hash != md5_checksum:
-            logger.error(u"Tautulli Helpers :: MD5 checksum doesn't match for GeoLite2 database. "
-                         "Checksum: %s, file hash: %s" % (md5_checksum, md5_hash))
-            return False
-    except Exception as e:
-        logger.error(u"Tautulli Helpers :: Failed to generate MD5 checksum for GeoLite2 database: %s" % e)
-        return False
-
-    # Delete temportary GeoLite2 gzip file
-    logger.debug(u"Tautulli Helpers :: Deleting temporary GeoLite2 gzip file...")
-    try:
-        os.remove(temp_gz)
-    except Exception as e:
-        logger.warn(u"Tautulli Helpers :: Failed to remove temporary GeoLite2 gzip file: %s" % e)
-
-    logger.debug(u"Tautulli Helpers :: GeoLite2 database installed successfully.")
-    plexpy.CONFIG.__setattr__('GEOIP_DB', geolite2_db)
-    plexpy.CONFIG.write()
-
-    return True
-
-
-def uninstall_geoip_db():
-    logger.debug(u"Tautulli Helpers :: Uninstalling the GeoLite2 database...")
-    try:
-        os.remove(plexpy.CONFIG.GEOIP_DB)
-        plexpy.CONFIG.__setattr__('GEOIP_DB', '')
-        plexpy.CONFIG.write()
-    except Exception as e:
-        logger.error(u"Tautulli Helpers :: Failed to uninstall the GeoLite2 database: %s" % e)
-        return False
-
-    logger.debug(u"Tautulli Helpers :: GeoLite2 database uninstalled successfully.")
-    return True
-
-
-def geoip_lookup(ip_address):
-    if not plexpy.CONFIG.GEOIP_DB:
-        return 'GeoLite2 database not installed. Please install from the ' \
-            '<a href="settings?install_geoip=true">Settings</a> page.'
-
-    if not ip_address:
-        return 'No IP address provided.'
-
-    try:
-        reader = geoip2.database.Reader(plexpy.CONFIG.GEOIP_DB)
-        geo = reader.city(ip_address)
-        reader.close()
-    except ValueError as e:
-        return 'Invalid IP address provided: %s.' % ip_address
-    except IOError as e:
-        return 'Missing GeoLite2 database. Please reinstall from the ' \
-            '<a href="settings?install_geoip=true">Settings</a> page.'
-    except maxminddb.InvalidDatabaseError as e:
-        return 'Invalid GeoLite2 database. Please reinstall from the ' \
-            '<a href="settings?reinstall_geoip=true">Settings</a> page.'
-    except geoip2.errors.AddressNotFoundError as e:
-        return '%s' % e
-    except Exception as e:
-        return 'Error: %s' % e
-
-    geo_info = {'continent': geo.continent.name,
-                'country': geo.country.name,
-                'region': geo.subdivisions.most_specific.name,
-                'city': geo.city.name,
-                'postal_code': geo.postal.code,
-                'timezone': geo.location.time_zone,
-                'latitude': geo.location.latitude,
-                'longitude': geo.location.longitude,
-                'accuracy': geo.location.accuracy_radius
-                }
-
-    return geo_info
 
 
 def whois_lookup(ip_address):
@@ -733,7 +671,7 @@ def upload_to_imgur(img_data, img_title='', rating_key='', fallback=''):
     img_url = delete_hash = ''
 
     if not plexpy.CONFIG.IMGUR_CLIENT_ID:
-        logger.error(u"Tautulli Helpers :: Cannot upload image to Imgur. No Imgur client id specified in the settings.")
+        logger.error("Tautulli Helpers :: Cannot upload image to Imgur. No Imgur client id specified in the settings.")
         return img_url, delete_hash
 
     headers = {'Authorization': 'Client-ID %s' % plexpy.CONFIG.IMGUR_CLIENT_ID}
@@ -746,18 +684,18 @@ def upload_to_imgur(img_data, img_title='', rating_key='', fallback=''):
                                                            headers=headers, data=data)
 
     if response and not err_msg:
-        logger.debug(u"Tautulli Helpers :: Image '{}' ({}) uploaded to Imgur.".format(img_title, fallback))
+        logger.debug("Tautulli Helpers :: Image '{}' ({}) uploaded to Imgur.".format(img_title, fallback))
         imgur_response_data = response.json().get('data')
         img_url = imgur_response_data.get('link', '').replace('http://', 'https://')
         delete_hash = imgur_response_data.get('deletehash', '')
     else:
         if err_msg:
-            logger.error(u"Tautulli Helpers :: Unable to upload image '{}' ({}) to Imgur: {}".format(img_title, fallback, err_msg))
+            logger.error("Tautulli Helpers :: Unable to upload image '{}' ({}) to Imgur: {}".format(img_title, fallback, err_msg))
         else:
-            logger.error(u"Tautulli Helpers :: Unable to upload image '{}' ({}) to Imgur.".format(img_title, fallback))
+            logger.error("Tautulli Helpers :: Unable to upload image '{}' ({}) to Imgur.".format(img_title, fallback))
 
         if req_msg:
-            logger.debug(u"Tautulli Helpers :: Request response: {}".format(req_msg))
+            logger.debug("Tautulli Helpers :: Request response: {}".format(req_msg))
 
     return img_url, delete_hash
 
@@ -765,7 +703,7 @@ def upload_to_imgur(img_data, img_title='', rating_key='', fallback=''):
 def delete_from_imgur(delete_hash, img_title='', fallback=''):
     """ Deletes an image from Imgur """
     if not plexpy.CONFIG.IMGUR_CLIENT_ID:
-        logger.error(u"Tautulli Helpers :: Cannot delete image from Imgur. No Imgur client id specified in the settings.")
+        logger.error("Tautulli Helpers :: Cannot delete image from Imgur. No Imgur client id specified in the settings.")
         return False
 
     headers = {'Authorization': 'Client-ID %s' % plexpy.CONFIG.IMGUR_CLIENT_ID}
@@ -774,13 +712,13 @@ def delete_from_imgur(delete_hash, img_title='', fallback=''):
                                                            headers=headers)
 
     if response and not err_msg:
-        logger.debug(u"Tautulli Helpers :: Image '{}' ({}) deleted from Imgur.".format(img_title, fallback))
+        logger.debug("Tautulli Helpers :: Image '{}' ({}) deleted from Imgur.".format(img_title, fallback))
         return True
     else:
         if err_msg:
-            logger.error(u"Tautulli Helpers :: Unable to delete image '{}' ({}) from Imgur: {}".format(img_title, fallback, err_msg))
+            logger.error("Tautulli Helpers :: Unable to delete image '{}' ({}) from Imgur: {}".format(img_title, fallback, err_msg))
         else:
-            logger.error(u"Tautulli Helpers :: Unable to delete image '{}' ({}) from Imgur.".format(img_title, fallback))
+            logger.error("Tautulli Helpers :: Unable to delete image '{}' ({}) from Imgur.".format(img_title, fallback))
         return False
 
 
@@ -789,7 +727,7 @@ def upload_to_cloudinary(img_data, img_title='', rating_key='', fallback=''):
     img_url = ''
 
     if not plexpy.CONFIG.CLOUDINARY_CLOUD_NAME or not plexpy.CONFIG.CLOUDINARY_API_KEY or not plexpy.CONFIG.CLOUDINARY_API_SECRET:
-        logger.error(u"Tautulli Helpers :: Cannot upload image to Cloudinary. Cloudinary settings not specified in the settings.")
+        logger.error("Tautulli Helpers :: Cannot upload image to Cloudinary. Cloudinary settings not specified in the settings.")
         return img_url
 
     cloudinary.config(
@@ -799,22 +737,22 @@ def upload_to_cloudinary(img_data, img_title='', rating_key='', fallback=''):
     )
 
     try:
-        response = upload('data:image/png;base64,{}'.format(base64.b64encode(img_data)),
+        response = upload((img_title, img_data),
                           public_id='{}_{}'.format(fallback, rating_key),
-                          tags=[fallback, str(rating_key)],
-                          context={'title': img_title.encode('utf-8'), 'rating_key': str(rating_key), 'fallback': fallback})
-        logger.debug(u"Tautulli Helpers :: Image '{}' ({}) uploaded to Cloudinary.".format(img_title, fallback))
+                          tags=['tautulli', fallback, str(rating_key)],
+                          context={'title': img_title, 'rating_key': str(rating_key), 'fallback': fallback})
+        logger.debug("Tautulli Helpers :: Image '{}' ({}) uploaded to Cloudinary.".format(img_title, fallback))
         img_url = response.get('url', '')
     except Exception as e:
-        logger.error(u"Tautulli Helpers :: Unable to upload image '{}' ({}) to Cloudinary: {}".format(img_title, fallback, e))
+        logger.error("Tautulli Helpers :: Unable to upload image '{}' ({}) to Cloudinary: {}".format(img_title, fallback, e))
 
     return img_url
 
 
-def delete_from_cloudinary(rating_key):
+def delete_from_cloudinary(rating_key=None, delete_all=False):
     """ Deletes an image from Cloudinary """
     if not plexpy.CONFIG.CLOUDINARY_CLOUD_NAME or not plexpy.CONFIG.CLOUDINARY_API_KEY or not plexpy.CONFIG.CLOUDINARY_API_SECRET:
-        logger.error(u"Tautulli Helpers :: Cannot delete image from Cloudinary. Cloudinary settings not specified in the settings.")
+        logger.error("Tautulli Helpers :: Cannot delete image from Cloudinary. Cloudinary settings not specified in the settings.")
         return False
 
     cloudinary.config(
@@ -823,9 +761,15 @@ def delete_from_cloudinary(rating_key):
         api_secret=plexpy.CONFIG.CLOUDINARY_API_SECRET
     )
 
-    delete_resources_by_tag(str(rating_key))
+    if delete_all:
+        delete_resources_by_tag('tautulli')
+        logger.debug("Tautulli Helpers :: Deleted all images from Cloudinary.")
+    elif rating_key:
+        delete_resources_by_tag(str(rating_key))
+        logger.debug("Tautulli Helpers :: Deleted images from Cloudinary with rating_key {}.".format(rating_key))
+    else:
+        logger.debug("Tautulli Helpers :: Unable to delete images from Cloudinary: No rating_key provided.")
 
-    logger.debug(u"Tautulli Helpers :: Deleted images from Cloudinary with rating_key {}.".format(rating_key))
     return True
 
 
@@ -834,7 +778,7 @@ def cloudinary_transform(rating_key=None, width=1000, height=1500, opacity=100, 
     url = ''
 
     if not plexpy.CONFIG.CLOUDINARY_CLOUD_NAME or not plexpy.CONFIG.CLOUDINARY_API_KEY or not plexpy.CONFIG.CLOUDINARY_API_SECRET:
-        logger.error(u"Tautulli Helpers :: Cannot transform image on Cloudinary. Cloudinary settings not specified in the settings.")
+        logger.error("Tautulli Helpers :: Cannot transform image on Cloudinary. Cloudinary settings not specified in the settings.")
         return url
 
     cloudinary.config(
@@ -846,7 +790,7 @@ def cloudinary_transform(rating_key=None, width=1000, height=1500, opacity=100, 
     img_options = {'format': img_format,
                    'fetch_format': 'auto',
                    'quality': 'auto',
-                   'version': int(time.time()),
+                   'version': timestamp(),
                    'secure': True}
 
     if width != 1000:
@@ -864,9 +808,9 @@ def cloudinary_transform(rating_key=None, width=1000, height=1500, opacity=100, 
 
     try:
         url, options = cloudinary_url('{}_{}'.format(fallback, rating_key), **img_options)
-        logger.debug(u"Tautulli Helpers :: Image '{}' ({}) transformed on Cloudinary.".format(img_title, fallback))
+        logger.debug("Tautulli Helpers :: Image '{}' ({}) transformed on Cloudinary.".format(img_title, fallback))
     except Exception as e:
-        logger.error(u"Tautulli Helpers :: Unable to transform image '{}' ({}) on Cloudinary: {}".format(img_title, fallback, e))
+        logger.error("Tautulli Helpers :: Unable to transform image '{}' ({}) on Cloudinary: {}".format(img_title, fallback, e))
 
     return url
 
@@ -879,7 +823,7 @@ def cache_image(url, image=None):
     # Create image directory if it doesn't exist
     imgdir = os.path.join(plexpy.CONFIG.CACHE_DIR, 'images/')
     if not os.path.exists(imgdir):
-        logger.debug(u"Tautulli Helpers :: Creating image cache directory at %s" % imgdir)
+        logger.debug("Tautulli Helpers :: Creating image cache directory at %s" % imgdir)
         os.makedirs(imgdir)
 
     # Create a hash of the url to use as the filename
@@ -892,7 +836,7 @@ def cache_image(url, image=None):
             with open(imagefile, 'wb') as cache_file:
                 cache_file.write(image)
         except IOError as e:
-            logger.error(u"Tautulli Helpers :: Failed to cache image %s: %s" % (imagefile, e))
+            logger.error("Tautulli Helpers :: Failed to cache image %s: %s" % (imagefile, e))
 
     # Try to return the image from the cache directory
     if os.path.isfile(imagefile):
@@ -929,13 +873,14 @@ def build_datatables_json(kwargs, dt_columns, default_sort_col=None):
     return json.dumps(json_data)
 
 
-def humanFileSize(bytes, si=False):
+def humanFileSize(bytes, si=True):
     if str(bytes).isdigit():
-        bytes = int(bytes)
+        bytes = cast_to_float(bytes)
     else:
         return bytes
 
-    thresh = 1000 if si else 1024
+    #thresh = 1000 if si else 1024
+    thresh = 1024  # Always divide by 2^10 but display SI units
     if bytes < thresh:
         return str(bytes) + ' B'
 
@@ -1094,13 +1039,13 @@ def get_plexpy_url(hostname=None):
     else:
         hostname = hostname or plexpy.CONFIG.HTTP_HOST
 
-    if plexpy.CONFIG.HTTP_PORT not in (80, 443):
-        port = ':' + str(plexpy.CONFIG.HTTP_PORT)
+    if plexpy.HTTP_PORT not in (80, 443):
+        port = ':' + str(plexpy.HTTP_PORT)
     else:
         port = ''
 
-    if plexpy.CONFIG.HTTP_ROOT.strip('/'):
-        root = '/' + plexpy.CONFIG.HTTP_ROOT.strip('/')
+    if plexpy.HTTP_ROOT is not None and plexpy.HTTP_ROOT.strip('/'):
+        root = '/' + plexpy.HTTP_ROOT.strip('/')
     else:
         root = ''
 
@@ -1120,7 +1065,7 @@ def grouper(iterable, n, fillvalue=None):
     "Collect data into fixed-length chunks or blocks"
     # grouper('ABCDEFG', 3, 'x') --> ABC DEF Gxx
     args = [iter(iterable)] * n
-    return izip_longest(fillvalue=fillvalue, *args)
+    return zip_longest(fillvalue=fillvalue, *args)
 
 
 def traverse_map(obj, func):
@@ -1131,7 +1076,7 @@ def traverse_map(obj, func):
 
     elif isinstance(obj, dict):
         new_obj = {}
-        for k, v in obj.iteritems():
+        for k, v in obj.items():
             new_obj[traverse_map(k, func)] = traverse_map(v, func)
 
     else:
@@ -1143,7 +1088,200 @@ def traverse_map(obj, func):
 def split_args(args=None):
     if isinstance(args, list):
         return args
-    elif isinstance(args, basestring):
-        return [arg.decode(plexpy.SYS_ENCODING, 'ignore')
-                for arg in shlex.split(args.encode(plexpy.SYS_ENCODING, 'ignore'))]
+    elif isinstance(args, str):
+        if plexpy.PYTHON2:
+            args = args.encode('utf-8')
+        args = shlex.split(args)
+        if plexpy.PYTHON2:
+            args = [a.decode('utf-8') for a in args]
+        return args
     return []
+
+
+def mask_config_passwords(config):
+    if isinstance(config, list):
+        for cfg in config:
+            if 'password' in cfg.get('name', '') and cfg.get('value', '') != '':
+                cfg['value'] = '    '
+
+    elif isinstance(config, dict):
+        for cfg, val in config.items():
+            # Check for a password config keys and if the password is not blank
+            if 'password' in cfg and val != '':
+                # Set the password to blank so it is not exposed in the HTML form
+                config[cfg] = '    '
+
+    return config
+
+
+def bool_true(value, return_none=False):
+    if value is None and return_none:
+        return None
+    elif value is True or value == 1:
+        return True
+    elif isinstance(value, str) and value.lower() in ('1', 'true', 't', 'yes', 'y', 'on'):
+        return True
+    return False
+
+
+def page(endpoint, *args, **kwargs):
+    endpoints = {
+        'pms_image_proxy': pms_image_proxy,
+        'info': info_page,
+        'library': library_page,
+        'user': user_page
+    }
+
+    params = {}
+
+    if endpoint in endpoints:
+        params = endpoints[endpoint](*args, **kwargs)
+
+    return endpoint + '?' + urlencode(params)
+
+
+def pms_image_proxy(img=None, rating_key=None, width=None, height=None,
+                    opacity=None, background=None, blur=None, img_format=None,
+                    fallback=None, refresh=None, clip=None):
+    params = {}
+
+    if img is not None:
+        params['img'] = img
+    if rating_key is not None:
+        params['rating_key'] = rating_key
+    if width is not None:
+        params['width'] = width
+    if height is not None:
+        params['height'] = height
+    if opacity is not None:
+        params['opacity'] = opacity
+    if background is not None:
+        params['background'] = background
+    if blur is not None:
+        params['blur'] = blur
+    if img_format is not None:
+        params['img_format'] = img_format
+    if fallback is not None:
+        params['fallback'] = fallback
+    if refresh is not None:
+        params['refresh'] = 'true'
+    if clip is not None:
+        params['clip'] = 'true'
+
+    return params
+
+
+def info_page(rating_key=None, guid=None, history=None, live=None):
+    params = {}
+
+    if live and history:
+        params['guid'] = guid
+    else:
+        params['rating_key'] = rating_key
+
+    if history:
+        params['source'] = 'history'
+
+    return params
+
+
+def library_page(section_id=None):
+    params = {}
+
+    if section_id is not None:
+        params['section_id'] = section_id
+
+    return params
+
+
+def user_page(user_id=None, user=None):
+    params = {}
+
+    if user_id is not None:
+        params['user_id'] = user_id
+    if user is not None:
+        params['user'] = user
+
+    return params
+
+
+def browse_path(path=None, include_hidden=False, filter_ext=''):
+    output = []
+
+    if os.name == 'nt' and path.lower() == 'my computer':
+        drives = ['%s:\\' % d for d in string.ascii_uppercase if os.path.exists('%s:' % d)]
+        for drive in drives:
+            out = {
+                'key': base64.b64encode(drive.encode('UTF-8')),
+                'path': drive,
+                'title': drive,
+                'type': 'folder',
+                'icon': 'folder'
+            }
+            output.append(out)
+
+    if not os.path.isdir(path):
+        return output
+
+    if path != os.path.dirname(path):
+        parent_path = os.path.dirname(path)
+        out = {
+            'key': base64.b64encode(parent_path.encode('UTF-8')),
+            'path': parent_path,
+            'title': '..',
+            'type': 'folder',
+            'icon': 'level-up-alt'
+        }
+        output.append(out)
+    elif os.name == 'nt':
+        parent_path = 'My Computer'
+        out = {
+            'key': base64.b64encode(parent_path.encode('UTF-8')),
+            'path': parent_path,
+            'title': parent_path,
+            'type': 'folder',
+            'icon': 'level-up-alt'
+        }
+        output.append(out)
+
+    for root, dirs, files in os.walk(path):
+        for d in sorted(dirs):
+            if not include_hidden and d.startswith('.'):
+                continue
+            dir_path = os.path.join(root, d)
+            out = {
+                'key': base64.b64encode(dir_path.encode('UTF-8')),
+                'path': dir_path,
+                'title': d,
+                'type': 'folder',
+                'icon': 'folder'
+            }
+            output.append(out)
+        for f in sorted(files):
+            if not include_hidden and f.startswith('.'):
+                continue
+            if filter_ext and not f.endswith(filter_ext):
+                continue
+            file_path = os.path.join(root, f)
+            out = {
+                'key': base64.b64encode(file_path.encode('UTF-8')),
+                'path': file_path,
+                'title': f,
+                'type': 'file',
+                'icon': 'file'
+            }
+            output.append(out)
+
+        break
+
+    return output
+
+
+def delete_file(file_path):
+    logger.info("Tautulli Helpers :: Deleting file: %s", file_path)
+    try:
+        os.remove(file_path)
+        return True
+    except OSError:
+        logger.error("Tautulli Helpers :: Failed to delete file: %s", file_path)
+        return False

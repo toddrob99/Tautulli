@@ -1,4 +1,6 @@
-﻿#  This file is part of Tautulli.
+﻿# -*- coding: utf-8 -*-
+
+#  This file is part of Tautulli.
 #
 #  Tautulli is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -12,6 +14,10 @@
 #
 #  You should have received a copy of the GNU General Public License
 #  along with Tautulli.  If not, see <http://www.gnu.org/licenses/>.
+
+from __future__ import unicode_literals
+from future.builtins import str
+from future.builtins import object
 
 import base64
 import bleach
@@ -28,9 +34,8 @@ import subprocess
 import sys
 import threading
 import time
-from urllib import urlencode
-from urlparse import urlparse
-import uuid
+from future.moves.urllib.parse import urlencode
+from future.moves.urllib.parse import urlparse
 
 try:
     from Cryptodome.Protocol.KDF import PBKDF2
@@ -51,28 +56,34 @@ except ImportError:
 import gntp.notifier
 import facebook
 import twitter
-import pynma
 
 import plexpy
-import common
-import database
-import helpers
-import logger
-import mobile_app
-import pmsconnect
-import request
-import users
+if plexpy.PYTHON2:
+    import common
+    import database
+    import helpers
+    import logger
+    import mobile_app
+    import pmsconnect
+    import request
+    import users
+else:
+    from plexpy import common
+    from plexpy import database
+    from plexpy import helpers
+    from plexpy import logger
+    from plexpy import mobile_app
+    from plexpy import pmsconnect
+    from plexpy import request
+    from plexpy import users
 
 
 BROWSER_NOTIFIERS = {}
-
 
 AGENT_IDS = {'growl': 0,
              'prowl': 1,
              'xbmc': 2,
              'plex': 3,
-             'nma': 4,
-             'pushalot': 5,
              'pushbullet': 6,
              'pushover': 7,
              'osx': 8,
@@ -86,13 +97,13 @@ AGENT_IDS = {'growl': 0,
              'facebook': 16,
              'browser': 17,
              'join': 18,
-             'hipchat': 19,
              'discord': 20,
              'androidapp': 21,
              'groupme': 22,
              'mqtt': 23,
              'zapier': 24,
-             'webhook': 25
+             'webhook': 25,
+             'plexmobileapp': 26
              }
 
 DEFAULT_CUSTOM_CONDITIONS = [{'parameter': '', 'operator': '', 'value': ''}]
@@ -101,103 +112,141 @@ DEFAULT_CUSTOM_CONDITIONS = [{'parameter': '', 'operator': '', 'value': ''}]
 def available_notification_agents():
     agents = [{'label': 'Tautulli Remote Android App',
                'name': 'androidapp',
-               'id': AGENT_IDS['androidapp']
+               'id': AGENT_IDS['androidapp'],
+               'class': ANDROIDAPP,
+               'action_types': ('all',)
                },
               {'label': 'Boxcar',
                'name': 'boxcar',
-               'id': AGENT_IDS['boxcar']
+               'id': AGENT_IDS['boxcar'],
+               'class': BOXCAR,
+               'action_types': ('all',)
                },
               {'label': 'Browser',
                'name': 'browser',
-               'id': AGENT_IDS['browser']
+               'id': AGENT_IDS['browser'],
+               'class': BROWSER,
+               'action_types': ('all',)
                },
               {'label': 'Discord',
                'name': 'discord',
                'id': AGENT_IDS['discord'],
+               'class': DISCORD,
+               'action_types': ('all',)
                },
               {'label': 'Email',
                'name': 'email',
-               'id': AGENT_IDS['email']
+               'id': AGENT_IDS['email'],
+               'class': EMAIL,
+               'action_types': ('all',)
                },
               {'label': 'Facebook',
                'name': 'facebook',
-               'id': AGENT_IDS['facebook']
+               'id': AGENT_IDS['facebook'],
+               'class': FACEBOOK,
+               'action_types': ('all',)
                },
               {'label': 'GroupMe',
                'name': 'groupme',
-               'id': AGENT_IDS['groupme']
+               'id': AGENT_IDS['groupme'],
+               'class': GROUPME,
+               'action_types': ('all',)
                },
               {'label': 'Growl',
                'name': 'growl',
-               'id': AGENT_IDS['growl']
-               },
-              {'label': 'Hipchat',
-               'name': 'hipchat',
-               'id': AGENT_IDS['hipchat']
+               'id': AGENT_IDS['growl'],
+               'class': GROWL,
+               'action_types': ('all',)
                },
               {'label': 'IFTTT',
                'name': 'ifttt',
-               'id': AGENT_IDS['ifttt']
+               'id': AGENT_IDS['ifttt'],
+               'class': IFTTT,
+               'action_types': ('all',)
                },
               {'label': 'Join',
                'name': 'join',
-               'id': AGENT_IDS['join']
+               'id': AGENT_IDS['join'],
+               'class': JOIN,
+               'action_types': ('all',)
                },
               {'label': 'Kodi',
                'name': 'xbmc',
-               'id': AGENT_IDS['xbmc']
+               'id': AGENT_IDS['xbmc'],
+               'class': XBMC,
+               'action_types': ('all',)
                },
-              # {'label': 'Notify My Android',
-              #  'name': 'nma',
-              #  'id': AGENT_IDS['nma']
-              #  },
               {'label': 'MQTT',
                'name': 'mqtt',
-               'id': AGENT_IDS['mqtt']
+               'id': AGENT_IDS['mqtt'],
+               'class': MQTT,
+               'action_types': ('all',)
                },
               {'label': 'Plex Home Theater',
                'name': 'plex',
-               'id': AGENT_IDS['plex']
+               'id': AGENT_IDS['plex'],
+               'class': PLEX,
+               'action_types': ('all',)
+               },
+              {'label': 'Plex Android / iOS App',
+               'name': 'plexmobileapp',
+               'id': AGENT_IDS['plexmobileapp'],
+               'class': PLEXMOBILEAPP,
+               'action_types': ('on_play', 'on_created', 'on_newdevice')
                },
               {'label': 'Prowl',
                'name': 'prowl',
-               'id': AGENT_IDS['prowl']
+               'id': AGENT_IDS['prowl'],
+               'class': PROWL,
+               'action_types': ('all',)
                },
-              # {'label': 'Pushalot',
-              #  'name': 'pushalot',
-              #  'id': AGENT_IDS['pushalot']
-              #  },
               {'label': 'Pushbullet',
                'name': 'pushbullet',
-               'id': AGENT_IDS['pushbullet']
+               'id': AGENT_IDS['pushbullet'],
+               'class': PUSHBULLET,
+               'action_types': ('all',)
                },
               {'label': 'Pushover',
                'name': 'pushover',
-               'id': AGENT_IDS['pushover']
+               'id': AGENT_IDS['pushover'],
+               'class': PUSHOVER,
+               'action_types': ('all',)
                },
               {'label': 'Script',
                'name': 'scripts',
-               'id': AGENT_IDS['scripts']
+               'id': AGENT_IDS['scripts'],
+               'class': SCRIPTS,
+               'action_types': ('all',)
                },
               {'label': 'Slack',
                'name': 'slack',
-               'id': AGENT_IDS['slack']
+               'id': AGENT_IDS['slack'],
+               'class': SLACK,
+               'action_types': ('all',)
                },
               {'label': 'Telegram',
                'name': 'telegram',
-               'id': AGENT_IDS['telegram']
+               'id': AGENT_IDS['telegram'],
+               'class': TELEGRAM,
+               'action_types': ('all',)
                },
               {'label': 'Twitter',
                'name': 'twitter',
-               'id': AGENT_IDS['twitter']
+               'id': AGENT_IDS['twitter'],
+               'class': TWITTER,
+               'action_types': ('all',)
                },
               {'label': 'Webhook',
                'name': 'webhook',
-               'id': AGENT_IDS['webhook']
+               'id': AGENT_IDS['webhook'],
+               'class': WEBHOOK,
+               'action_types': ('all',)
                },
               {'label': 'Zapier',
                'name': 'zapier',
-               'id': AGENT_IDS['zapier']
+               'id': AGENT_IDS['zapier'],
+               'class': ZAPIER,
+               'action_types': ('all',)
                }
               ]
 
@@ -205,13 +254,15 @@ def available_notification_agents():
     if OSX().validate():
         agents.append({'label': 'macOS Notification Center',
                        'name': 'osx',
-                       'id': AGENT_IDS['osx']
+                       'id': AGENT_IDS['osx'],
+                       'class': OSX,
+                       'action_types': ('all',)
                        })
 
     return agents
 
 
-def available_notification_actions():
+def available_notification_actions(agent_id=None):
     actions = [{'label': 'Playback Start',
                 'name': 'on_play',
                 'description': 'Trigger a notification when a stream is started.',
@@ -242,6 +293,14 @@ def available_notification_actions():
                 'subject': 'Tautulli ({server_name})',
                 'body': '{user} ({player}) has resumed {title}.',
                 'icon': 'fa-play',
+                'media_types': ('movie', 'episode', 'track')
+                },
+               {'label': 'Transcode Decision Change',
+                'name': 'on_change',
+                'description': 'Trigger a notification when a stream changes transcode decision.',
+                'subject': 'Tautulli ({server_name})',
+                'body': '{user} ({player}) has changed transcode decision for {title}.',
+                'icon': 'fa-exchange-alt',
                 'media_types': ('movie', 'episode', 'track')
                 },
                {'label': 'Watched',
@@ -304,7 +363,7 @@ def available_notification_actions():
                 'name': 'on_extdown',
                 'description': 'Trigger a notification when the Plex Media Server cannot be reached externally.',
                 'subject': 'Tautulli ({server_name})',
-                'body': 'The Plex Media Server remote access is down.',
+                'body': 'The Plex Media Server remote access is down. ({remote_access_reason})',
                 'icon': 'fa-server',
                 'media_types': ('server',)
                 },
@@ -331,79 +390,42 @@ def available_notification_actions():
                 'body': 'An update is available for Tautulli (version {tautulli_update_version}).',
                 'icon': 'fa-refresh',
                 'media_types': ('server',)
+                },
+               {'label': 'Tautulli Database Corruption',
+                'name': 'on_plexpydbcorrupt',
+                'description': 'Trigger a notification if Tautulli database corruption is detected when backing up the database.',
+                'subject': 'Tautulli ({server_name})',
+                'body': 'Tautulli database corruption detected. Automatic cleanup of database backups is suspended.',
+                'icon': 'fa-database',
+                'media_types': ('server',)
                 }
                ]
+
+    if str(agent_id).isdigit():
+        action_types = get_notify_agents(return_dict=True).get(int(agent_id), {}).get('action_types', [])
+        if 'all' not in action_types:
+            actions = [a for a in actions if a['name'] in action_types]
 
     return actions
 
 
 def get_agent_class(agent_id=None, config=None):
     if str(agent_id).isdigit():
-        agent_id = int(agent_id)
-
-        if agent_id == 0:
-            return GROWL(config=config)
-        elif agent_id == 1:
-            return PROWL(config=config)
-        elif agent_id == 2:
-            return XBMC(config=config)
-        elif agent_id == 3:
-            return PLEX(config=config)
-        elif agent_id == 4:
-            return NMA(config=config)
-        elif agent_id == 5:
-            return PUSHALOT(config=config)
-        elif agent_id == 6:
-            return PUSHBULLET(config=config)
-        elif agent_id == 7:
-            return PUSHOVER(config=config)
-        elif agent_id == 8:
-            return OSX(config=config)
-        elif agent_id == 9:
-            return BOXCAR(config=config)
-        elif agent_id == 10:
-            return EMAIL(config=config)
-        elif agent_id == 11:
-            return TWITTER(config=config)
-        elif agent_id == 12:
-            return IFTTT(config=config)
-        elif agent_id == 13:
-            return TELEGRAM(config=config)
-        elif agent_id == 14:
-            return SLACK(config=config)
-        elif agent_id == 15:
-            return SCRIPTS(config=config)
-        elif agent_id == 16:
-            return FACEBOOK(config=config)
-        elif agent_id == 17:
-            return BROWSER(config=config)
-        elif agent_id == 18:
-            return JOIN(config=config)
-        elif agent_id == 19:
-            return HIPCHAT(config=config)
-        elif agent_id == 20:
-            return DISCORD(config=config)
-        elif agent_id == 21:
-            return ANDROIDAPP(config=config)
-        elif agent_id == 22:
-            return GROUPME(config=config)
-        elif agent_id == 23:
-            return MQTT(config=config)
-        elif agent_id == 24:
-            return ZAPIER(config=config)
-        elif agent_id == 25:
-            return WEBHOOK(config=config)
-        else:
-            return Notifier(config=config)
+        agent = get_notify_agents(return_dict=True).get(int(agent_id), {}).get('class', Notifier)
+        return agent(config=config)
     else:
         return None
 
 
-def get_notify_agents():
+def get_notify_agents(return_dict=False):
+    if return_dict:
+        return {a['id']: a for a in available_notification_agents()}
     return tuple(a['name'] for a in sorted(available_notification_agents(), key=lambda k: k['label']))
 
 
-def get_notify_actions():
+def get_notify_actions(return_dict=False):
+    if return_dict:
+        return {a['name']: a for a in available_notification_actions()}
     return tuple(a['name'] for a in available_notification_actions())
 
 
@@ -428,7 +450,7 @@ def get_notifiers(notifier_id=None, notify_action=None):
                        % (', '.join(notify_actions), where), args=args)
 
     for item in result:
-        item['active'] = int(any([item.pop(k) for k in item.keys() if k in notify_actions]))
+        item['active'] = int(any([item.pop(k) for k in list(item.keys()) if k in notify_actions]))
 
     return result
 
@@ -437,7 +459,7 @@ def delete_notifier(notifier_id=None):
     db = database.MonitorDatabase()
 
     if str(notifier_id).isdigit():
-        logger.debug(u"Tautulli Notifiers :: Deleting notifier_id %s from the database."
+        logger.debug("Tautulli Notifiers :: Deleting notifier_id %s from the database."
                      % notifier_id)
         result = db.action('DELETE FROM notifiers WHERE id = ?', args=[notifier_id])
         return True
@@ -445,11 +467,11 @@ def delete_notifier(notifier_id=None):
         return False
 
 
-def get_notifier_config(notifier_id=None):
+def get_notifier_config(notifier_id=None, mask_passwords=False):
     if str(notifier_id).isdigit():
         notifier_id = int(notifier_id)
     else:
-        logger.error(u"Tautulli Notifiers :: Unable to retrieve notifier config: invalid notifier_id %s."
+        logger.error("Tautulli Notifiers :: Unable to retrieve notifier config: invalid notifier_id %s."
                      % notifier_id)
         return None
 
@@ -462,20 +484,30 @@ def get_notifier_config(notifier_id=None):
     try:
         config = json.loads(result.pop('notifier_config', '{}'))
         notifier_agent = get_agent_class(agent_id=result['agent_id'], config=config)
-        notifier_config = notifier_agent.return_config_options()
     except Exception as e:
-        logger.error(u"Tautulli Notifiers :: Failed to get notifier config options: %s." % e)
+        logger.error("Tautulli Notifiers :: Failed to get notifier config options: %s." % e)
         return
 
-    notify_actions = get_notify_actions()
+    if mask_passwords:
+        notifier_agent.config = helpers.mask_config_passwords(notifier_agent.config)
+
+    notify_actions = get_notify_actions(return_dict=True)
 
     notifier_actions = {}
     notifier_text = {}
-    for k in result.keys():
+    for k in list(result.keys()):
         if k in notify_actions:
+            subject = result.pop(k + '_subject')
+            body = result.pop(k + '_body')
+
+            if subject is None:
+                subject = "" if result['agent_name'] in ('scripts', 'webhook') else notify_actions[k]['subject']
+            if body is None:
+                body = "" if result['agent_name'] in ('scripts', 'webhook') else notify_actions[k]['body']
+
             notifier_actions[k] = helpers.cast_to_int(result.pop(k))
-            notifier_text[k] = {'subject': result.pop(k + '_subject'),
-                                'body': result.pop(k + '_body')}
+            notifier_text[k] = {'subject': subject,
+                                'body': body}
 
     try:
         result['custom_conditions'] = json.loads(result['custom_conditions'])
@@ -485,8 +517,8 @@ def get_notifier_config(notifier_id=None):
     if not result['custom_conditions_logic']:
         result['custom_conditions_logic'] = ''
 
-    result['config'] = config
-    result['config_options'] = notifier_config
+    result['config'] = notifier_agent.config
+    result['config_options'] = notifier_agent.return_config_options(mask_passwords=mask_passwords)
     result['actions'] = notifier_actions
     result['notify_text'] = notifier_text
 
@@ -497,14 +529,14 @@ def add_notifier_config(agent_id=None, **kwargs):
     if str(agent_id).isdigit():
         agent_id = int(agent_id)
     else:
-        logger.error(u"Tautulli Notifiers :: Unable to add new notifier: invalid agent_id %s."
+        logger.error("Tautulli Notifiers :: Unable to add new notifier: invalid agent_id %s."
                      % agent_id)
         return False
 
-    agent = next((a for a in available_notification_agents() if a['id'] == agent_id), None)
+    agent = get_notify_agents(return_dict=True).get(agent_id, None)
 
     if not agent:
-        logger.error(u"Tautulli Notifiers :: Unable to retrieve new notification agent: invalid agent_id %s."
+        logger.error("Tautulli Notifiers :: Unable to retrieve new notification agent: invalid agent_id %s."
                      % agent_id)
         return False
 
@@ -533,12 +565,12 @@ def add_notifier_config(agent_id=None, **kwargs):
     try:
         db.upsert(table_name='notifiers', key_dict=keys, value_dict=values)
         notifier_id = db.last_insert_id()
-        logger.info(u"Tautulli Notifiers :: Added new notification agent: %s (notifier_id %s)."
+        logger.info("Tautulli Notifiers :: Added new notification agent: %s (notifier_id %s)."
                     % (agent['label'], notifier_id))
         blacklist_logger()
         return notifier_id
     except Exception as e:
-        logger.warn(u"Tautulli Notifiers :: Unable to add notification agent: %s." % e)
+        logger.warn("Tautulli Notifiers :: Unable to add notification agent: %s." % e)
         return False
 
 
@@ -546,14 +578,14 @@ def set_notifier_config(notifier_id=None, agent_id=None, **kwargs):
     if str(agent_id).isdigit():
         agent_id = int(agent_id)
     else:
-        logger.error(u"Tautulli Notifiers :: Unable to set existing notifier: invalid agent_id %s."
+        logger.error("Tautulli Notifiers :: Unable to set existing notifier: invalid agent_id %s."
                      % agent_id)
         return False
 
-    agent = next((a for a in available_notification_agents() if a['id'] == agent_id), None)
+    agent = get_notify_agents(return_dict=True).get(agent_id, None)
 
     if not agent:
-        logger.error(u"Tautulli Notifiers :: Unable to retrieve existing notification agent: invalid agent_id %s."
+        logger.error("Tautulli Notifiers :: Unable to retrieve existing notification agent: invalid agent_id %s."
                      % agent_id)
         return False
 
@@ -561,13 +593,20 @@ def set_notifier_config(notifier_id=None, agent_id=None, **kwargs):
     config_prefix = agent['name'] + '_'
 
     actions = {k: helpers.cast_to_int(kwargs.pop(k))
-               for k in kwargs.keys() if k in notify_actions}
+               for k in list(kwargs.keys()) if k in notify_actions}
     subject_text = {k: kwargs.pop(k)
-                    for k in kwargs.keys() if k.startswith(notify_actions) and k.endswith('_subject')}
+                    for k in list(kwargs.keys()) if k.startswith(notify_actions) and k.endswith('_subject')}
     body_text = {k: kwargs.pop(k)
-                 for k in kwargs.keys() if k.startswith(notify_actions) and k.endswith('_body')}
+                 for k in list(kwargs.keys()) if k.startswith(notify_actions) and k.endswith('_body')}
     notifier_config = {k[len(config_prefix):]: kwargs.pop(k)
-                       for k in kwargs.keys() if k.startswith(config_prefix)}
+                       for k in list(kwargs.keys()) if k.startswith(config_prefix)}
+
+    for cfg, val in notifier_config.items():
+        # Check for a password config keys and a blank password from the HTML form
+        if 'password' in cfg and val == '    ':
+            # Get the previous password so we don't overwrite it with a blank value
+            old_notifier_config = get_notifier_config(notifier_id=notifier_id)
+            notifier_config[cfg] = old_notifier_config['config'][cfg]
 
     agent_class = get_agent_class(agent_id=agent['id'], config=notifier_config)
 
@@ -587,7 +626,7 @@ def set_notifier_config(notifier_id=None, agent_id=None, **kwargs):
     db = database.MonitorDatabase()
     try:
         db.upsert(table_name='notifiers', key_dict=keys, value_dict=values)
-        logger.info(u"Tautulli Notifiers :: Updated notification agent: %s (notifier_id %s)."
+        logger.info("Tautulli Notifiers :: Updated notification agent: %s (notifier_id %s)."
                     % (agent['label'], notifier_id))
         blacklist_logger()
 
@@ -596,7 +635,7 @@ def set_notifier_config(notifier_id=None, agent_id=None, **kwargs):
 
         return True
     except Exception as e:
-        logger.warn(u"Tautulli Notifiers :: Unable to update notification agent: %s." % e)
+        logger.warn("Tautulli Notifiers :: Unable to update notification agent: %s." % e)
         return False
 
 
@@ -611,7 +650,7 @@ def send_notification(notifier_id=None, subject='', body='', notify_action='', n
                             notification_id=notification_id,
                             **kwargs)
     else:
-        logger.debug(u"Tautulli Notifiers :: Notification requested but no notifier_id received.")
+        logger.debug("Tautulli Notifiers :: Notification requested but no notifier_id received.")
 
 
 def blacklist_logger():
@@ -652,7 +691,8 @@ class PrettyMetadata(object):
     def get_music_providers():
         return {'': '',
                 'plexweb': 'Plex Web',
-                'lastfm': 'Last.fm'
+                'lastfm': 'Last.fm',
+                'musicbrainz': 'MusicBrainz'
                 }
 
     def get_poster_url(self):
@@ -680,6 +720,8 @@ class PrettyMetadata(object):
             provider_name = 'Trakt.tv'
         elif provider == 'lastfm':
             provider_name = 'Last.fm'
+        elif provider == 'musicbrainz':
+            provider_name = 'MusicBrainz'
         # else:
         #     if self.media_type == 'movie':
         #         provider_name = 'IMDb'
@@ -728,14 +770,14 @@ class PrettyMetadata(object):
             title = '%s - %s' % (self.parameters['artist_name'], self.parameters['album_name'])
         elif self.media_type == 'track':
             title = '%s - %s' % (self.parameters['track_name'], self.parameters['track_artist'])
-        return title.encode("utf-8")
+        return title
 
     def get_description(self):
         if self.media_type == 'track':
             description = self.parameters['album_name']
         else:
             description = self.parameters['summary']
-        return description.encode("utf-8")
+        return description
 
     def get_plex_url(self):
         return self.parameters['plex_url']
@@ -763,7 +805,7 @@ class Notifier(object):
             return default
 
         new_config = {}
-        for k, v in default.iteritems():
+        for k, v in default.items():
             if isinstance(v, int):
                 new_config[k] = helpers.cast_to_int(config.get(k, v))
             elif isinstance(v, list):
@@ -783,10 +825,10 @@ class Notifier(object):
     def notify(self, subject='', body='', action='', **kwargs):
         if self.NAME not in ('Script', 'Webhook'):
             if not subject and self.config.get('incl_subject', True):
-                logger.error(u"Tautulli Notifiers :: %s notification subject cannot be blank." % self.NAME)
+                logger.error("Tautulli Notifiers :: %s notification subject cannot be blank." % self.NAME)
                 return
             elif not body:
-                logger.error(u"Tautulli Notifiers :: %s notification body cannot be blank." % self.NAME)
+                logger.error("Tautulli Notifiers :: %s notification body cannot be blank." % self.NAME)
                 return
 
         return self.agent_notify(subject=subject, body=body, action=action, **kwargs)
@@ -795,11 +837,11 @@ class Notifier(object):
         pass
 
     def make_request(self, url, method='POST', **kwargs):
-        logger.info(u"Tautulli Notifiers :: Sending {name} notification...".format(name=self.NAME))
+        logger.info("Tautulli Notifiers :: Sending {name} notification...".format(name=self.NAME))
         response, err_msg, req_msg = request.request_response2(url, method, **kwargs)
 
         if response and not err_msg:
-            logger.info(u"Tautulli Notifiers :: {name} notification sent.".format(name=self.NAME))
+            logger.info("Tautulli Notifiers :: {name} notification sent.".format(name=self.NAME))
             return True
 
         else:
@@ -807,17 +849,26 @@ class Notifier(object):
             if response is not None and response.status_code >= 400 and response.status_code < 500:
                 verify_msg = " Verify you notification agent settings are correct."
 
-            logger.error(u"Tautulli Notifiers :: {name} notification failed.{msg}".format(msg=verify_msg, name=self.NAME))
+            logger.error("Tautulli Notifiers :: {name} notification failed.{msg}".format(msg=verify_msg, name=self.NAME))
 
             if err_msg:
-                logger.error(u"Tautulli Notifiers :: {}".format(err_msg))
+                logger.error("Tautulli Notifiers :: {}".format(err_msg))
 
             if req_msg:
-                logger.debug(u"Tautulli Notifiers :: Request response: {}".format(req_msg))
+                logger.debug("Tautulli Notifiers :: Request response: {}".format(req_msg))
 
             return False
 
-    def return_config_options(self):
+    def return_config_options(self, mask_passwords=False):
+        config_options = self._return_config_options()
+
+        # Mask password config options
+        if mask_passwords:
+            helpers.mask_config_passwords(config_options)
+
+        return config_options
+
+    def _return_config_options(self):
         config_options = []
         return config_options
 
@@ -831,13 +882,11 @@ class ANDROIDAPP(Notifier):
                        'priority': 3
                        }
 
-    _ONESIGNAL_APP_ID = '3b4b666a-d557-4b92-acdf-e2c8c4b95357'
-
     def agent_notify(self, subject='', body='', action='', notification_id=None, **kwargs):
         # Check mobile device is still registered
         device = mobile_app.get_mobile_devices(device_id=self.config['device_id'])
         if not device:
-            logger.warn(u"Tautulli Notifiers :: Unable to send Android app notification: device not registered.")
+            logger.warn("Tautulli Notifiers :: Unable to send Android app notification: device not registered.")
             return
         else:
             device = device[0]
@@ -845,15 +894,15 @@ class ANDROIDAPP(Notifier):
         pretty_metadata = PrettyMetadata(kwargs.get('parameters'))
 
         plaintext_data = {'notification_id': notification_id,
-                          'subject': subject.encode('UTF-8'),
-                          'body': body.encode('UTF-8'),
-                          'action': action.encode('UTF-8'),
+                          'subject': subject,
+                          'body': body,
+                          'action': action,
                           'priority': self.config['priority'],
-                          'session_key': pretty_metadata.parameters.get('session_key',''),
-                          'session_id': pretty_metadata.parameters.get('session_id',''),
-                          'user_id': pretty_metadata.parameters.get('user_id',''),
-                          'rating_key': pretty_metadata.parameters.get('rating_key',''),
-                          'poster_thumb': pretty_metadata.parameters.get('poster_thumb','')}
+                          'session_key': pretty_metadata.parameters.get('session_key', ''),
+                          'session_id': pretty_metadata.parameters.get('session_id', ''),
+                          'user_id': pretty_metadata.parameters.get('user_id', ''),
+                          'rating_key': pretty_metadata.parameters.get('rating_key', ''),
+                          'poster_thumb': pretty_metadata.parameters.get('poster_thumb', '')}
 
         #logger.debug("Plaintext data: {}".format(plaintext_data))
 
@@ -871,7 +920,7 @@ class ANDROIDAPP(Notifier):
             # Encrypt using AES GCM
             nonce = get_random_bytes(16)
             cipher = AES.new(key, AES.MODE_GCM, nonce)
-            encrypted_data, gcm_tag = cipher.encrypt_and_digest(json.dumps(plaintext_data))
+            encrypted_data, gcm_tag = cipher.encrypt_and_digest(json.dumps(plaintext_data).encode('utf-8'))
             encrypted_data += gcm_tag
 
             #logger.debug("Encrypted data (base64): {}".format(base64.b64encode(encrypted_data)))
@@ -879,7 +928,7 @@ class ANDROIDAPP(Notifier):
             #logger.debug("Nonce (base64): {}".format(base64.b64encode(nonce)))
             #logger.debug("Salt (base64): {}".format(base64.b64encode(salt)))
 
-            payload = {'app_id': self._ONESIGNAL_APP_ID,
+            payload = {'app_id': mobile_app._ONESIGNAL_APP_ID,
                        'include_player_ids': [self.config['device_id']],
                        'contents': {'en': 'Tautulli Notification'},
                        'data': {'encrypted': True,
@@ -888,11 +937,11 @@ class ANDROIDAPP(Notifier):
                                 'salt': base64.b64encode(salt)}
                        }
         else:
-            logger.warn(u"Tautulli Notifiers :: PyCryptodome library is missing. "
+            logger.warn("Tautulli Notifiers :: PyCryptodome library is missing. "
                         "Android app notifications will be sent unecrypted. "
                         "Install the library to encrypt the notifications.")
 
-            payload = {'app_id': self._ONESIGNAL_APP_ID,
+            payload = {'app_id': mobile_app._ONESIGNAL_APP_ID,
                        'include_player_ids': [self.config['device_id']],
                        'contents': {'en': 'Tautulli Notification'},
                        'data': {'encrypted': False,
@@ -909,10 +958,10 @@ class ANDROIDAPP(Notifier):
         db = database.MonitorDatabase()
 
         try:
-            query = 'SELECT * FROM mobile_devices'
+            query = 'SELECT * FROM mobile_devices WHERE official = 1'
             result = db.select(query=query)
         except Exception as e:
-            logger.warn(u"Tautulli Notifiers :: Unable to retrieve Android app devices list: %s." % e)
+            logger.warn("Tautulli Notifiers :: Unable to retrieve Android app devices list: %s." % e)
             return {'': ''}
 
         devices = {}
@@ -924,7 +973,7 @@ class ANDROIDAPP(Notifier):
 
         return devices
 
-    def return_config_options(self):
+    def _return_config_options(self):
         config_option = []
 
         if not CRYPTODOME:
@@ -960,8 +1009,8 @@ class ANDROIDAPP(Notifier):
             config_option.append({
                 'label': 'Device',
                 'description': 'No devices registered. '
-                               '<a data-tab-destination="tabs-android_app" data-toggle="tab" data-dismiss="modal" '
-                               'data-target="#top">Get the Android App</a> and register a device.',
+                               '<a data-tab-destination="android_app" data-toggle="tab" data-dismiss="modal">'
+                               'Get the Android App</a> and register a device.',
                 'input_type': 'help'
                 })
         else:
@@ -970,8 +1019,8 @@ class ANDROIDAPP(Notifier):
                 'value': self.config['device_id'],
                 'name': 'androidapp_device_id',
                 'description': 'Set your Android app device or '
-                               '<a data-tab-destination="tabs-android_app" data-toggle="tab" data-dismiss="modal" '
-                               'data-target="#top">register a new device</a> with Tautulli.',
+                               '<a data-tab-destination="android_app" data-toggle="tab" data-dismiss="modal">'
+                               'register a new device</a> with Tautulli.',
                 'input_type': 'select',
                 'select_options': devices
                 })
@@ -999,8 +1048,8 @@ class BOXCAR(Notifier):
 
     def agent_notify(self, subject='', body='', action='', **kwargs):
         data = {'user_credentials': self.config['token'],
-                'notification[title]': subject.encode('utf-8'),
-                'notification[long_message]': body.encode('utf-8'),
+                'notification[title]': subject,
+                'notification[long_message]': body,
                 'notification[sound]': self.config['sound']
                 }
 
@@ -1040,7 +1089,7 @@ class BOXCAR(Notifier):
 
         return sounds
 
-    def return_config_options(self):
+    def _return_config_options(self):
         config_option = [{'label': 'Boxcar Access Token',
                           'value': self.config['token'],
                           'name': 'boxcar_token',
@@ -1068,21 +1117,26 @@ class BROWSER(Notifier):
                        }
 
     def agent_notify(self, subject='', body='', action='', **kwargs):
-        logger.info(u"Tautulli Notifiers :: {name} notification sent.".format(name=self.NAME))
+        logger.info("Tautulli Notifiers :: {name} notification sent.".format(name=self.NAME))
         return True
 
-    def return_config_options(self):
-        config_option = [{'label': 'Allow Notifications',
+    def _return_config_options(self):
+        config_option = [{'label': 'Note',
+                          'description': 'You may need to refresh the page after saving for changes to take effect.',
+                          'input_type': 'help'
+                          },
+                         {'label': 'Allow Notifications',
                           'value': 'Allow Notifications',
                           'name': 'browser_allow_browser',
-                          'description': 'Click to allow browser notifications. You must click this button for each browser.',
+                          'description': 'Click to allow browser notifications. '
+                                         'You must click this button for each browser.',
                           'input_type': 'button'
                           },
                          {'label': 'Auto Hide Delay',
                           'value': self.config['auto_hide_delay'],
                           'name': 'browser_auto_hide_delay',
-                          'description': 'Set the number of seconds for the notification to remain visible. \
-                                          Set 0 to disable auto hiding. (Note: Some browsers have a maximum time limit.)',
+                          'description': 'Set the number of seconds for the notification to remain visible. '
+                                         'Set 0 to disable auto hiding. (Note: Some browsers have a maximum time limit.)',
                           'input_type': 'number'
                           }
                          ]
@@ -1112,9 +1166,9 @@ class DISCORD(Notifier):
 
     def agent_notify(self, subject='', body='', action='', **kwargs):
         if self.config['incl_subject']:
-            text = subject.encode('utf-8') + '\r\n' + body.encode("utf-8")
+            text = subject + '\r\n' + body
         else:
-            text = body.encode("utf-8")
+            text = body
 
         data = {'content': text}
         if self.config['username']:
@@ -1140,7 +1194,7 @@ class DISCORD(Notifier):
             poster_url = pretty_metadata.get_poster_url()
             provider_name = pretty_metadata.get_provider_name(provider)
             provider_link = pretty_metadata.get_provider_link(provider)
-            title = pretty_metadata.get_title('\xc2\xb7'.decode('utf8'))
+            title = pretty_metadata.get_title('\u00B7')
             description = pretty_metadata.get_description()
             plex_url = pretty_metadata.get_plex_url()
 
@@ -1162,17 +1216,17 @@ class DISCORD(Notifier):
                 attachment['image'] = {'url': poster_url}
 
             if self.config['incl_description'] or pretty_metadata.media_type in ('artist', 'album', 'track'):
-                attachment['description'] = description
+                attachment['description'] = description[:2045] + (description[2045:] and '...')
 
             fields = []
             if provider_link:
                 attachment['url'] = provider_link
                 fields.append({'name': 'View Details',
-                               'value': '[%s](%s)' % (provider_name, provider_link.encode('utf-8')),
+                               'value': '[%s](%s)' % (provider_name, provider_link),
                                'inline': True})
             if self.config['incl_pmslink']:
                 fields.append({'name': 'View Details',
-                               'value': '[Plex Web](%s)' % plex_url.encode('utf-8'),
+                               'value': '[Plex Web](%s)' % plex_url,
                                'inline': True})
             if fields:
                 attachment['fields'] = fields
@@ -1184,7 +1238,7 @@ class DISCORD(Notifier):
 
         return self.make_request(self.config['hook'], params=params, headers=headers, json=data)
 
-    def return_config_options(self):
+    def _return_config_options(self):
         config_option = [{'label': 'Discord Webhook URL',
                           'value': self.config['hook'],
                           'name': 'discord_hook',
@@ -1225,8 +1279,8 @@ class DISCORD(Notifier):
                           'value': self.config['incl_card'],
                           'name': 'discord_incl_card',
                           'description': 'Include an info card with a poster and metadata with the notifications.<br>'
-                                         'Note: <a data-tab-destination="tabs-notifications" data-dismiss="modal" '
-                                         'data-target="#notify_upload_posters">Image Hosting</a> '
+                                         'Note: <a data-tab-destination="3rd_party_apis" data-dismiss="modal" '
+                                         'data-target="notify_upload_posters">Image Hosting</a> '
                                          'must be enabled under the notifications settings tab.',
                           'input_type': 'checkbox'
                           },
@@ -1341,11 +1395,12 @@ class EMAIL(Notifier):
                 mailserver.login(str(self.config['smtp_user']), str(self.config['smtp_password']))
 
             mailserver.sendmail(self.config['from'], recipients, msg.as_string())
-            logger.info(u"Tautulli Notifiers :: {name} notification sent.".format(name=self.NAME))
+            logger.info("Tautulli Notifiers :: {name} notification sent.".format(name=self.NAME))
             success = True
 
         except Exception as e:
-            logger.error(u"Tautulli Notifiers :: {name} notification failed: {e}".format(name=self.NAME, e=e))
+            logger.error("Tautulli Notifiers :: {name} notification failed: {e}".format(
+                name=self.NAME, e=str(e).decode('utf-8')))
 
         finally:
             if mailserver:
@@ -1364,13 +1419,13 @@ class EMAIL(Notifier):
         user_emails_cc.update(emails)
         user_emails_bcc.update(emails)
 
-        user_emails_to = [{'value': k, 'text': v} for k, v in user_emails_to.iteritems()]
-        user_emails_cc = [{'value': k, 'text': v} for k, v in user_emails_cc.iteritems()]
-        user_emails_bcc = [{'value': k, 'text': v} for k, v in user_emails_bcc.iteritems()]
+        user_emails_to = [{'value': k, 'text': v} for k, v in user_emails_to.items()]
+        user_emails_cc = [{'value': k, 'text': v} for k, v in user_emails_cc.items()]
+        user_emails_bcc = [{'value': k, 'text': v} for k, v in user_emails_bcc.items()]
 
         return user_emails_to, user_emails_cc, user_emails_bcc
 
-    def return_config_options(self):
+    def _return_config_options(self):
         user_emails_to, user_emails_cc, user_emails_bcc = self.get_user_emails()
 
         config_option = [{'label': 'From Name',
@@ -1477,7 +1532,7 @@ class FACEBOOK(Notifier):
                                  perms=['publish_to_groups'])
 
     def _get_credentials(self, code=''):
-        logger.info(u"Tautulli Notifiers :: Requesting access token from {name}.".format(name=self.NAME))
+        logger.info("Tautulli Notifiers :: Requesting access token from {name}.".format(name=self.NAME))
 
         app_id = plexpy.CONFIG.FACEBOOK_APP_ID
         app_secret = plexpy.CONFIG.FACEBOOK_APP_SECRET
@@ -1499,7 +1554,7 @@ class FACEBOOK(Notifier):
 
             plexpy.CONFIG.FACEBOOK_TOKEN = response['access_token']
         except Exception as e:
-            logger.error(u"Tautulli Notifiers :: Error requesting {name} access token: {e}".format(name=self.NAME, e=e))
+            logger.error("Tautulli Notifiers :: Error requesting {name} access token: {e}".format(name=self.NAME, e=e))
             plexpy.CONFIG.FACEBOOK_TOKEN = ''
 
         # Clear out temporary config values
@@ -1515,21 +1570,21 @@ class FACEBOOK(Notifier):
 
             try:
                 api.put_object(parent_object=self.config['group_id'], connection_name='feed', **data)
-                logger.info(u"Tautulli Notifiers :: {name} notification sent.".format(name=self.NAME))
+                logger.info("Tautulli Notifiers :: {name} notification sent.".format(name=self.NAME))
                 return True
             except Exception as e:
-                logger.error(u"Tautulli Notifiers :: Error sending {name} post: {e}".format(name=self.NAME, e=e))
+                logger.error("Tautulli Notifiers :: Error sending {name} post: {e}".format(name=self.NAME, e=e))
                 return False
 
         else:
-            logger.error(u"Tautulli Notifiers :: Error sending {name} post: No {name} Group ID provided.".format(name=self.NAME))
+            logger.error("Tautulli Notifiers :: Error sending {name} post: No {name} Group ID provided.".format(name=self.NAME))
             return False
 
     def agent_notify(self, subject='', body='', action='', **kwargs):
         if self.config['incl_subject']:
-            text = subject.encode('utf-8') + '\r\n' + body.encode("utf-8")
+            text = subject + '\r\n' + body
         else:
-            text = body.encode("utf-8")
+            text = body
 
         data = {'message': text}
 
@@ -1550,7 +1605,7 @@ class FACEBOOK(Notifier):
 
         return self._post_facebook(**data)
 
-    def return_config_options(self):
+    def _return_config_options(self):
         config_option = [{'label': 'OAuth Redirect URI',
                           'value': self.config['redirect_uri'],
                           'name': 'facebook_redirect_uri',
@@ -1599,8 +1654,8 @@ class FACEBOOK(Notifier):
                           'value': self.config['incl_card'],
                           'name': 'facebook_incl_card',
                           'description': 'Include an info card with a poster and metadata with the notifications.<br>'
-                                         'Note: <a data-tab-destination="tabs-notifications" data-dismiss="modal" '
-                                         'data-target="#notify_upload_posters">Image Hosting</a> '
+                                         'Note: <a data-tab-destination="3rd_party_apis" data-dismiss="modal" '
+                                         'data-target="notify_upload_posters">Image Hosting</a> '
                                          'must be enabled under the notifications settings tab.',
                           'input_type': 'checkbox'
                           },
@@ -1647,9 +1702,9 @@ class GROUPME(Notifier):
         data = {'bot_id': self.config['bot_id']}
 
         if self.config['incl_subject']:
-            data['text'] = subject.encode('utf-8') + '\r\n' + body.encode('utf-8')
+            data['text'] = subject + '\r\n' + body
         else:
-            data['text'] = body.encode('utf-8')
+            data['text'] = body
 
         if self.config['incl_poster'] and kwargs.get('parameters'):
             pretty_metadata = PrettyMetadata(kwargs.get('parameters'))
@@ -1660,7 +1715,7 @@ class GROUPME(Notifier):
                 poster_content = result[0]
             else:
                 poster_content = ''
-                logger.error(u"Tautulli Notifiers :: Unable to retrieve image for {name}.".format(name=self.NAME))
+                logger.error("Tautulli Notifiers :: Unable to retrieve image for {name}.".format(name=self.NAME))
 
             if poster_content:
                 headers = {'X-Access-Token': self.config['access_token'],
@@ -1669,18 +1724,18 @@ class GROUPME(Notifier):
                 r = requests.post('https://image.groupme.com/pictures', headers=headers, data=poster_content)
 
                 if r.status_code == 200:
-                    logger.info(u"Tautulli Notifiers :: {name} poster sent.".format(name=self.NAME))
+                    logger.info("Tautulli Notifiers :: {name} poster sent.".format(name=self.NAME))
                     r_content = r.json()
                     data['attachments'] = [{'type': 'image',
                                             'url': r_content['payload']['picture_url']}]
                 else:
-                    logger.error(u"Tautulli Notifiers :: {name} poster failed: "
-                                 u"[{r.status_code}] {r.reason}".format(name=self.NAME, r=r))
-                    logger.debug(u"Tautulli Notifiers :: Request response: {}".format(request.server_message(r, True)))
+                    logger.error("Tautulli Notifiers :: {name} poster failed: "
+                                 "[{r.status_code}] {r.reason}".format(name=self.NAME, r=r))
+                    logger.debug("Tautulli Notifiers :: Request response: {}".format(request.server_message(r, True)))
 
         return self.make_request('https://api.groupme.com/v3/bots/post', json=data)
 
-    def return_config_options(self):
+    def _return_config_options(self):
         config_option = [{'label': 'GroupMe Access Token',
                           'value': self.config['access_token'],
                           'name': 'groupme_access_token',
@@ -1748,10 +1803,10 @@ class GROWL(Notifier):
         try:
             growl.register()
         except gntp.notifier.errors.NetworkError:
-            logger.error(u"Tautulli Notifiers :: {name} notification failed: network error".format(name=self.NAME))
+            logger.error("Tautulli Notifiers :: {name} notification failed: network error".format(name=self.NAME))
             return False
         except gntp.notifier.errors.AuthError:
-            logger.error(u"Tautulli Notifiers :: {name} notification failed: authentication error".format(name=self.NAME))
+            logger.error("Tautulli Notifiers :: {name} notification failed: authentication error".format(name=self.NAME))
             return False
 
         # Fix message
@@ -1771,13 +1826,13 @@ class GROWL(Notifier):
                 description=body,
                 icon=image
             )
-            logger.info(u"Tautulli Notifiers :: {name} notification sent.".format(name=self.NAME))
+            logger.info("Tautulli Notifiers :: {name} notification sent.".format(name=self.NAME))
             return True
         except gntp.notifier.errors.NetworkError:
-            logger.error(u"Tautulli Notifiers :: {name} notification failed: network error".format(name=self.NAME))
+            logger.error("Tautulli Notifiers :: {name} notification failed: network error".format(name=self.NAME))
             return False
 
-    def return_config_options(self):
+    def _return_config_options(self):
         config_option = [{'label': 'Growl Host',
                           'value': self.config['host'],
                           'name': 'growl_host',
@@ -1795,179 +1850,6 @@ class GROWL(Notifier):
         return config_option
 
 
-class HIPCHAT(Notifier):
-    """
-    Hipchat notifications
-    """
-    NAME = 'Hipchat'
-    _DEFAULT_CONFIG = {'hook': '',
-                       'color': '',
-                       'emoticon': '',
-                       'incl_subject': 1,
-                       'incl_card': 0,
-                       'incl_description': 1,
-                       'incl_pmslink': 0,
-                       'movie_provider': '',
-                       'tv_provider': '',
-                       'music_provider': ''
-                       }
-
-    def agent_notify(self, subject='', body='', action='', **kwargs):
-        data = {'notify': 'false'}
-
-        text = body.encode('utf-8')
-
-        if self.config['incl_subject']:
-            data['from'] = subject.encode('utf-8')
-
-        if self.config['color']:
-            data['color'] = self.config['color']
-
-        if self.config['incl_card'] and kwargs.get('parameters', {}).get('media_type'):
-            # Grab formatted metadata
-            pretty_metadata = PrettyMetadata(kwargs['parameters'])
-
-            if pretty_metadata.media_type == 'movie':
-                provider = self.config['movie_provider']
-            elif pretty_metadata.media_type in ('show', 'season', 'episode'):
-                provider = self.config['tv_provider']
-            elif pretty_metadata.media_type in ('artist', 'album', 'track'):
-                provider = self.config['music_provider']
-            else:
-                provider = None
-
-            poster_url = pretty_metadata.get_poster_url()
-            provider_name = pretty_metadata.get_provider_name(provider)
-            provider_link = pretty_metadata.get_provider_link(provider)
-            title = pretty_metadata.get_title()
-            description = pretty_metadata.get_description()
-            plex_url = pretty_metadata.get_plex_url()
-
-            attachment = {'title': title,
-                          'format': 'medium',
-                          'style': 'application',
-                          'id': uuid.uuid4().hex,
-                          'activity': {'html': text,
-                                       'icon': {'url': poster_url}},
-                          'thumbnail': {'url': poster_url}
-                          }
-
-            if self.config['incl_description'] or pretty_metadata.media_type in ('artist', 'album', 'track'):
-                attachment['description'] = {'format': 'text',
-                                             'value': description}
-
-            attributes = []
-            if provider_link:
-                attachment['url'] = provider_link
-                attributes.append({'label': 'View Details',
-                                   'value': {'label': provider_name,
-                                             'url': provider_link}})
-            if self.config['incl_pmslink']:
-                attributes.append({'label': 'View Details',
-                                   'value': {'label': 'Plex Web',
-                                             'url': plex_url}})
-            if attributes:
-                attachment['attributes'] = attributes
-
-            data['message'] = text
-            data['card'] = attachment
-
-        else:
-            if self.config['emoticon']:
-                text = self.config['emoticon'] + ' ' + text
-            data['message'] = text
-            data['message_format'] = 'text'
-
-        headers = {'Content-type': 'application/json'}
-
-        return self.make_request(self.config['hook'], headers=headers, json=data)
-
-    def return_config_options(self):
-        config_option = [{'label': 'Hipchat Custom Integrations URL',
-                          'value': self.config['hook'],
-                          'name': 'hipchat_hook',
-                          'description': 'Your Hipchat BYO integration URL. You can get a key from'
-                                         ' <a href="' + helpers.anon_url('https://www.hipchat.com/addons/') + '" target="_blank">here</a>.',
-                          'input_type': 'text'
-                          },
-                         {'label': 'Hipchat Color',
-                          'value': self.config['color'],
-                          'name': 'hipchat_color',
-                          'description': 'Background color for the message.',
-                          'input_type': 'select',
-                          'select_options': {'': '',
-                                             'gray': 'gray',
-                                             'green': 'green',
-                                             'purple': 'purple',
-                                             'random': 'random',
-                                             'red': 'red',
-                                             'yellow': 'yellow'
-                                             }
-                          },
-                         {'label': 'Hipchat Emoticon',
-                          'value': self.config['emoticon'],
-                          'name': 'hipchat_emoticon',
-                          'description': 'Include an emoticon tag at the beginning of text notifications (e.g. (taco)). Leave blank for none.'
-                                         ' Use a stock emoticon or create a custom emoticon'
-                                         ' <a href="' + helpers.anon_url('https://www.hipchat.com/emoticons/') + '" target="_blank">here</a>.',
-                          'input_type': 'text'
-                          },
-                         {'label': 'Include Subject Line',
-                          'value': self.config['incl_subject'],
-                          'name': 'hipchat_incl_subject',
-                          'description': 'Includes the subject with the notifications.',
-                          'input_type': 'checkbox'
-                          },
-                         {'label': 'Include Rich Metadata Info',
-                          'value': self.config['incl_card'],
-                          'name': 'hipchat_incl_card',
-                          'description': 'Include an info card with a poster and metadata with the notifications.<br>'
-                                         'Note: <a data-tab-destination="tabs-notifications" data-dismiss="modal" '
-                                         'data-target="#notify_upload_posters">Image Hosting</a> '
-                                         'must be enabled under the notifications settings tab.<br>'
-                                         'Note: This will change the notification type to HTML and emoticons will no longer work.',
-                          'input_type': 'checkbox'
-                          },
-                         {'label': 'Include Plot Summaries',
-                          'value': self.config['incl_description'],
-                          'name': 'hipchat_incl_description',
-                          'description': 'Include a plot summary for movies and TV shows on the info card.',
-                          'input_type': 'checkbox'
-                          },
-                         {'label': 'Include Link to Plex Web',
-                          'value': self.config['incl_pmslink'],
-                          'name': 'hipchat_incl_pmslink',
-                          'description': 'Include a second link to the media in Plex Web on the info card.',
-                          'input_type': 'checkbox'
-                          },
-                         {'label': 'Movie Link Source',
-                          'value': self.config['movie_provider'],
-                          'name': 'hipchat_movie_provider',
-                          'description': 'Select the source for movie links on the info cards. Leave blank to disable.<br>'
-                                         'Note: 3rd party API lookup may need to be enabled under the notifications settings tab.',
-                          'input_type': 'select',
-                          'select_options': PrettyMetadata().get_movie_providers()
-                          },
-                         {'label': 'TV Show Link Source',
-                          'value': self.config['tv_provider'],
-                          'name': 'hipchat_tv_provider',
-                          'description': 'Select the source for tv show links on the info cards. Leave blank to disable.<br>'
-                                         'Note: 3rd party API lookup may need to be enabled under the notifications settings tab.',
-                          'input_type': 'select',
-                          'select_options': PrettyMetadata().get_tv_providers()
-                          },
-                         {'label': 'Music Link Source',
-                          'value': self.config['music_provider'],
-                          'name': 'hipchat_music_provider',
-                          'description': 'Select the source for music links on the info cards. Leave blank to disable.',
-                          'input_type': 'select',
-                          'select_options': PrettyMetadata().get_music_providers()
-                          }
-                         ]
-
-        return config_option
-
-
 class IFTTT(Notifier):
     """
     IFTTT notifications
@@ -1979,10 +1861,10 @@ class IFTTT(Notifier):
                        }
 
     def agent_notify(self, subject='', body='', action='', **kwargs):
-        event = unicode(self.config['event']).format(action=action)
+        event = str(self.config['event']).format(action=action)
 
-        data = {'value1': subject.encode("utf-8"),
-                'value2': body.encode("utf-8")}
+        data = {'value1': subject,
+                'value2': body}
 
         if self.config['value3']:
             pretty_metadata = PrettyMetadata(kwargs['parameters'])
@@ -1993,7 +1875,7 @@ class IFTTT(Notifier):
         return self.make_request('https://maker.ifttt.com/trigger/{}/with/key/{}'.format(event, self.config['key']),
                                  headers=headers, json=data)
 
-    def return_config_options(self):
+    def _return_config_options(self):
         config_option = [{'label': 'IFTTT Webhook Key',
                           'value': self.config['key'],
                           'name': 'ifttt_key',
@@ -2042,10 +1924,10 @@ class JOIN(Notifier):
     def agent_notify(self, subject='', body='', action='', **kwargs):
         data = {'apikey': self.config['api_key'],
                 'deviceNames': ','.join(self.config['device_names']),
-                'text': body.encode("utf-8")}
+                'text': body}
 
         if self.config['incl_subject']:
-            data['title'] = subject.encode("utf-8")
+            data['title'] = subject
 
         if kwargs.get('parameters', {}).get('media_type'):
             # Grab formatted metadata
@@ -2073,15 +1955,15 @@ class JOIN(Notifier):
         if r.status_code == 200:
             response_data = r.json()
             if response_data.get('success'):
-                logger.info(u"Tautulli Notifiers :: {name} notification sent.".format(name=self.NAME))
+                logger.info("Tautulli Notifiers :: {name} notification sent.".format(name=self.NAME))
                 return True
             else:
                 error_msg = response_data.get('errorMessage')
-                logger.error(u"Tautulli Notifiers :: {name} notification failed: {msg}".format(name=self.NAME, msg=error_msg))
+                logger.error("Tautulli Notifiers :: {name} notification failed: {msg}".format(name=self.NAME, msg=error_msg))
                 return False
         else:
-            logger.error(u"Tautulli Notifiers :: {name} notification failed: [{r.status_code}] {r.reason}".format(name=self.NAME, r=r))
-            logger.debug(u"Tautulli Notifiers :: Request response: {}".format(request.server_message(r, True)))
+            logger.error("Tautulli Notifiers :: {name} notification failed: [{r.status_code}] {r.reason}".format(name=self.NAME, r=r))
+            logger.debug("Tautulli Notifiers :: Request response: {}".format(request.server_message(r, True)))
             return False
 
     def get_devices(self):
@@ -2091,27 +1973,28 @@ class JOIN(Notifier):
         if self.config['api_key']:
             params = {'apikey': self.config['api_key']}
 
-            r = requests.get('https://joinjoaomgcd.appspot.com/_ah/api/registration/v1/listDevices', params=params)
+            try:
+                r = requests.get('https://joinjoaomgcd.appspot.com/_ah/api/registration/v1/listDevices', params=params)
 
-            if r.status_code == 200:
-                response_data = r.json()
-                if response_data.get('success'):
-                    response_devices = response_data.get('records', [])
-                    devices.update({d['deviceName']: d['deviceName'] for d in response_devices})
-                    return devices
+                if r.status_code == 200:
+                    response_data = r.json()
+                    if response_data.get('success'):
+                        response_devices = response_data.get('records', [])
+                        devices.update({d['deviceName']: d['deviceName'] for d in response_devices})
+                    else:
+                        error_msg = response_data.get('errorMessage')
+                        logger.error("Tautulli Notifiers :: Unable to retrieve {name} devices list: {msg}".format(name=self.NAME, msg=error_msg))
+
                 else:
-                    error_msg = response_data.get('errorMessage')
-                    logger.info(u"Tautulli Notifiers :: Unable to retrieve {name} devices list: {msg}".format(name=self.NAME, msg=error_msg))
-                    return devices
-            else:
-                logger.error(u"Tautulli Notifiers :: Unable to retrieve {name} devices list: [{r.status_code}] {r.reason}".format(name=self.NAME, r=r))
-                logger.debug(u"Tautulli Notifiers :: Request response: {}".format(request.server_message(r, True)))
-                return devices
+                    logger.error("Tautulli Notifiers :: Unable to retrieve {name} devices list: [{r.status_code}] {r.reason}".format(name=self.NAME, r=r))
+                    logger.debug("Tautulli Notifiers :: Request response: {}".format(request.server_message(r, True)))
 
-        else:
-            return devices
+            except Exception as e:
+                logger.error("Tautulli Notifiers :: Unable to retrieve {name} devices list: {msg}".format(name=self.NAME, msg=e))
 
-    def return_config_options(self):
+        return devices
+
+    def _return_config_options(self):
         config_option = [{'label': 'Join API Key',
                           'value': self.config['api_key'],
                           'name': 'join_api_key',
@@ -2143,8 +2026,8 @@ class JOIN(Notifier):
                           'value': self.config['incl_poster'],
                           'name': 'join_incl_poster',
                           'description': 'Include a poster with the notifications.<br>'
-                                         'Note: <a data-tab-destination="tabs-notifications" data-dismiss="modal" '
-                                         'data-target="#notify_upload_posters">Image Hosting</a> '
+                                         'Note: <a data-tab-destination="3rd_party_apis" data-dismiss="modal" '
+                                         'data-target="notify_upload_posters">Image Hosting</a> '
                                          'must be enabled under the notifications settings tab.',
                           'input_type': 'checkbox'
                           },
@@ -2194,12 +2077,12 @@ class MQTT(Notifier):
 
     def agent_notify(self, subject='', body='', action='', **kwargs):
         if not self.config['topic']:
-            logger.error(u"Tautulli Notifiers :: MQTT topic not specified.")
+            logger.error("Tautulli Notifiers :: MQTT topic not specified.")
             return
 
-        data = {'subject': subject.encode("utf-8"),
-                'body': body.encode("utf-8"),
-                'topic': self.config['topic'].encode("utf-8")}
+        data = {'subject': subject,
+                'body': body,
+                'topic': self.config['topic']}
 
         auth = {}
         if self.config['username']:
@@ -2213,7 +2096,7 @@ class MQTT(Notifier):
 
         return True
 
-    def return_config_options(self):
+    def _return_config_options(self):
         config_option = [{'label': 'Broker',
                           'value': self.config['broker'],
                           'name': 'mqtt_broker',
@@ -2286,54 +2169,6 @@ class MQTT(Notifier):
         return config_option
 
 
-class NMA(Notifier):
-    """
-    Notify My Android notifications
-    """
-    NAME = 'Notify My Android'
-    _DEFAULT_CONFIG = {'api_key': '',
-                       'priority': 0
-                       }
-
-    def agent_notify(self, subject='', body='', action='', **kwargs):
-        title = 'Tautulli'
-        batch = False
-
-        p = pynma.PyNMA()
-        keys = self.config['api_key'].split(',')
-        p.addkey(keys)
-
-        if len(keys) > 1:
-            batch = True
-
-        response = p.push(title, subject, body, priority=self.config['priority'], batch_mode=batch)
-
-        if response[self.config['api_key']][u'code'] == u'200':
-            logger.info(u"Tautulli Notifiers :: {name} notification sent.".format(name=self.NAME))
-            return True
-        else:
-            logger.error(u"Tautulli Notifiers :: {name} notification failed.".format(name=self.NAME))
-            return False
-
-    def return_config_options(self):
-        config_option = [{'label': 'NotifyMyAndroid API Key',
-                          'value': self.config['api_key'],
-                          'name': 'nma_api_key',
-                          'description': 'Your NotifyMyAndroid API key. Separate multiple api keys with commas.',
-                          'input_type': 'text'
-                          },
-                         {'label': 'Priority',
-                          'value': self.config['priority'],
-                          'name': 'nma_priority',
-                          'description': 'Set the notification priority.',
-                          'input_type': 'select',
-                          'select_options': {-2: -2, -1: -1, 0: 0, 1: 1, 2: 2}
-                          }
-                         ]
-
-        return config_option
-
-
 class OSX(Notifier):
     """
     macOS notifications
@@ -2349,7 +2184,7 @@ class OSX(Notifier):
             self.objc = __import__("objc")
             self.AppKit = __import__("AppKit")
         except:
-            # logger.error(u"Tautulli Notifiers :: Cannot load OSX Notifications agent.")
+            # logger.error("Tautulli Notifiers :: Cannot load OSX Notifications agent.")
             pass
 
     def validate(self):
@@ -2408,16 +2243,16 @@ class OSX(Notifier):
 
             notification_center = NSUserNotificationCenter.defaultUserNotificationCenter()
             notification_center.deliverNotification_(notification)
-            logger.info(u"Tautulli Notifiers :: {name} notification sent.".format(name=self.NAME))
+            logger.info("Tautulli Notifiers :: {name} notification sent.".format(name=self.NAME))
 
             del pool
             return True
 
         except Exception as e:
-            logger.error(u"Tautulli Notifiers :: {name} failed: {e}".format(name=self.NAME, e=e))
+            logger.error("Tautulli Notifiers :: {name} failed: {e}".format(name=self.NAME, e=e))
             return False
 
-    def return_config_options(self):
+    def _return_config_options(self):
         config_option = [{'label': 'Register Notify App',
                           'value': self.config['notify_app'],
                           'name': 'osx_notify_app',
@@ -2486,7 +2321,7 @@ class PLEX(Notifier):
             image = os.path.join(plexpy.DATA_DIR, os.path.abspath("data/interfaces/default/images/logo-circle.png"))
 
         for host in hosts:
-            logger.info(u"Tautulli Notifiers :: Sending notification command to {name} @ {host}".format(name=self.NAME, host=host))
+            logger.info("Tautulli Notifiers :: Sending notification command to {name} @ {host}".format(name=self.NAME, host=host))
             try:
                 version = self._sendjson(host, 'Application.GetProperties', {'properties': ['version']})['version']['major']
 
@@ -2502,15 +2337,15 @@ class PLEX(Notifier):
                 if not request:
                     raise Exception
                 else:
-                    logger.info(u"Tautulli Notifiers :: {name} notification sent.".format(name=self.NAME))
+                    logger.info("Tautulli Notifiers :: {name} notification sent.".format(name=self.NAME))
 
             except Exception as e:
-                logger.error(u"Tautulli Notifiers :: {name} notification failed: {e}".format(name=self.NAME, e=e))
+                logger.error("Tautulli Notifiers :: {name} notification failed: {e}".format(name=self.NAME, e=e))
                 return False
 
         return True
 
-    def return_config_options(self):
+    def _return_config_options(self):
         config_option = [{'label': 'Plex Home Theater Host Address',
                           'value': self.config['hosts'],
                           'name': 'plex_hosts',
@@ -2546,6 +2381,189 @@ class PLEX(Notifier):
         return config_option
 
 
+class PLEXMOBILEAPP(Notifier):
+    """
+    Plex Mobile App Notifications
+    """
+    NAME = 'Plex Android / iOS App'
+    NOTIFICATION_URL = 'https://notifications.plex.tv/api/v1/notifications'
+    _DEFAULT_CONFIG = {'user_ids': [],
+                       'tap_action': 'preplay',
+                       }
+
+    def __init__(self, config=None):
+        super(PLEXMOBILEAPP, self).__init__(config=config)
+
+        self.configurations = {
+            'created': {'group': 'media', 'identifier': 'tv.plex.notification.library.new'},
+            'play': {'group': 'media', 'identifier': 'tv.plex.notification.playback.started'},
+            'newdevice': {'group': 'admin', 'identifier': 'tv.plex.notification.device.new'}
+        }
+
+    def agent_notify(self, subject='', body='', action='', **kwargs):
+        if action not in self.configurations and not action.startswith('test'):
+            logger.error(u"Tautulli Notifiers :: Notification action %s not allowed for %s." % (action, self.NAME))
+            return
+
+        if action == 'test':
+            tests = []
+            for configuration in self.configurations:
+                tests.append(self.agent_notify(subject=subject, body=body, action='test_'+configuration))
+            return all(tests)
+
+        configuration_action = action.split('test_')[-1]
+
+        # No subject to always show up regardless of client selected filters
+        # icon can be info, warning, or error
+        # play = true to start playing when tapping the notification
+        # Send the minimal amount of data necessary through Plex servers
+        data = {
+            'group': self.configurations[configuration_action]['group'],
+            'identifier': self.configurations[configuration_action]['identifier'],
+            'to': self.config['user_ids'],
+            'data': {
+                'provider': {
+                    'identifier': plexpy.CONFIG.PMS_IDENTIFIER,
+                    'title': plexpy.CONFIG.PMS_NAME
+                }
+            }
+        }
+
+        pretty_metadata = PrettyMetadata(kwargs.get('parameters'))
+
+        if action.startswith('test'):
+            data['data']['player'] = {
+                'title': 'Device',
+                'platform': 'Platform',
+                'machineIdentifier': 'Tautulli'
+            }
+            data['data']['user'] = {
+                'title': 'User',
+                'id': 0
+            }
+            data['metadata'] = {
+                'type': 'movie',
+                'title': subject,
+                'year': body
+            }
+
+        elif action in ('play', 'newdevice'):
+            data['data']['player'] = {
+                'title': pretty_metadata.parameters['player'],
+                'platform': pretty_metadata.parameters['platform'],
+                'machineIdentifier': pretty_metadata.parameters['machine_id']
+            }
+            data['data']['user'] = {
+                'title': pretty_metadata.parameters['user'],
+                'id': pretty_metadata.parameters['user_id'],
+                'thumb': pretty_metadata.parameters['user_thumb'],
+            }
+
+        elif action == 'created':
+            # No addition data required for recently added
+            pass
+
+        else:
+            logger.error(u"Tautulli Notifiers :: Notification action %s not supported for %s." % (action, self.NAME))
+            return
+
+        if data['group'] == 'media' and not action.startswith('test'):
+            media_type = pretty_metadata.media_type
+            uri_rating_key = None
+
+            if media_type == 'movie':
+                metadata = {
+                    'type': media_type,
+                    'title': pretty_metadata.parameters['title'],
+                    'year': pretty_metadata.parameters['year'],
+                    'thumb': pretty_metadata.parameters['thumb']
+                }
+            elif media_type == 'show':
+                metadata = {
+                    'type': media_type,
+                    'title': pretty_metadata.parameters['show_name'],
+                    'thumb': pretty_metadata.parameters['thumb']
+                }
+            elif media_type == 'season':
+                metadata = {
+                    'type': 'show',
+                    'title': pretty_metadata.parameters['show_name'],
+                    'thumb': pretty_metadata.parameters['thumb'],
+                }
+                data['data']['count'] = pretty_metadata.parameters['episode_count']
+            elif media_type == 'episode':
+                metadata = {
+                    'type': media_type,
+                    'title': pretty_metadata.parameters['episode_name'],
+                    'grandparentTitle': pretty_metadata.parameters['show_name'],
+                    'index': pretty_metadata.parameters['episode_num'],
+                    'parentIndex': pretty_metadata.parameters['season_num'],
+                    'grandparentThumb': pretty_metadata.parameters['grandparent_thumb']
+                }
+            elif media_type == 'artist':
+                metadata = {
+                    'type': media_type,
+                    'title': pretty_metadata.parameters['artist_name'],
+                    'thumb': pretty_metadata.parameters['thumb']
+                }
+            elif media_type == 'album':
+                metadata = {
+                    'type': media_type,
+                    'title': pretty_metadata.parameters['album_name'],
+                    'year': pretty_metadata.parameters['year'],
+                    'parentTitle': pretty_metadata.parameters['artist_name'],
+                    'thumb': pretty_metadata.parameters['thumb'],
+                }
+            elif media_type == 'track':
+                metadata = {
+                    'type': 'album',
+                    'title': pretty_metadata.parameters['album_name'],
+                    'year': pretty_metadata.parameters['year'],
+                    'parentTitle': pretty_metadata.parameters['artist_name'],
+                    'thumb': pretty_metadata.parameters['parent_thumb']
+                }
+                uri_rating_key = pretty_metadata.parameters['parent_rating_key']
+            else:
+                logger.error(u"Tautulli Notifiers :: Media type %s not supported for %s." % (media_type, self.NAME))
+                return
+
+            data['metadata'] = metadata
+            data['uri'] = 'server://{}/com.plexapp.plugins.library/library/metadata/{}'.format(
+                plexpy.CONFIG.PMS_IDENTIFIER, uri_rating_key or pretty_metadata.parameters['rating_key']
+            )
+            data['play'] = self.config['tap_action'] == 'play'
+
+        headers = {'X-Plex-Token': plexpy.CONFIG.PMS_TOKEN}
+
+        return self.make_request(self.NOTIFICATION_URL, headers=headers, json=data)
+
+    def get_users(self):
+        user_ids = {u['user_id']: u['friendly_name'] for u in users.Users().get_users() if u['user_id']}
+        return user_ids
+
+    def _return_config_options(self):
+        config_option = [{'label': 'Plex User(s)',
+                          'value': self.config['user_ids'],
+                          'name': 'plexmobileapp_user_ids',
+                          'description': 'Select which Plex User(s) to receive notifications.<br>'
+                                         'Note: The user(s) must have notifications enabled '
+                                         'for the matching Tautulli triggers in their Plex mobile app.',
+                          'input_type': 'select',
+                          'select_options': self.get_users()
+                          },
+                         {'label': 'Notification Tap Action',
+                          'value': self.config['tap_action'],
+                          'name': 'plexmobileapp_tap_action',
+                          'description': 'Set the action when tapping on the notification.',
+                          'input_type': 'select',
+                          'select_options': {'preplay': 'Go to media pre-play screen',
+                                             'play': 'Start playing the media'}
+                          },
+                         ]
+
+        return config_option
+
+
 class PROWL(Notifier):
     """
     Prowl notifications.
@@ -2558,15 +2576,15 @@ class PROWL(Notifier):
     def agent_notify(self, subject='', body='', action='', **kwargs):
         data = {'apikey': self.config['key'],
                 'application': 'Tautulli',
-                'event': subject.encode("utf-8"),
-                'description': body.encode("utf-8"),
+                'event': subject,
+                'description': body,
                 'priority': self.config['priority']}
 
         headers = {'Content-type': 'application/x-www-form-urlencoded'}
 
         return self.make_request('https://api.prowlapp.com/publicapi/add', headers=headers, data=data)
 
-    def return_config_options(self):
+    def _return_config_options(self):
         config_option = [{'label': 'Prowl API Key',
                           'value': self.config['key'],
                           'name': 'prowl_key',
@@ -2579,35 +2597,6 @@ class PROWL(Notifier):
                           'description': 'Set the notification priority.',
                           'input_type': 'select',
                           'select_options': {-2: -2, -1: -1, 0: 0, 1: 1, 2: 2}
-                          }
-                         ]
-
-        return config_option
-
-
-class PUSHALOT(Notifier):
-    """
-    Pushalot notifications
-    """
-    NAME = 'Pushalot'
-    _DEFAULT_CONFIG = {'api_key': ''
-                       }
-
-    def agent_notify(self, subject='', body='', action='', **kwargs):
-        data = {'AuthorizationToken': self.config['api_key'],
-                'Title': subject.encode('utf-8'),
-                'Body': body.encode("utf-8")}
-
-        headers = {'Content-type': 'application/x-www-form-urlencoded'}
-
-        return self.make_request('https://pushalot.com/api/sendmessage', headers=headers, data=data)
-
-    def return_config_options(self):
-        config_option = [{'label': 'Pushalot API Key',
-                          'value': self.config['api_key'],
-                          'name': 'pushalot_api_key',
-                          'description': 'Your Pushalot API key.',
-                          'input_type': 'text'
                           }
                          ]
 
@@ -2628,14 +2617,14 @@ class PUSHBULLET(Notifier):
 
     def agent_notify(self, subject='', body='', action='', **kwargs):
         data = {'type': 'note',
-                'body': body.encode("utf-8")}
+                'body': body}
 
         headers = {'Content-type': 'application/json',
                    'Access-Token': self.config['api_key']
                    }
 
         if self.config['incl_subject']:
-            data['title'] = subject.encode("utf-8")
+            data['title'] = subject
 
         # Can only send to a device or channel, not both.
         if self.config['device_id']:
@@ -2653,7 +2642,7 @@ class PUSHBULLET(Notifier):
                 poster_content = result[0]
             else:
                 poster_content = ''
-                logger.error(u"Tautulli Notifiers :: Unable to retrieve image for {name}.".format(name=self.NAME))
+                logger.error("Tautulli Notifiers :: Unable to retrieve image for {name}.".format(name=self.NAME))
 
             if poster_content:
                 poster_filename = 'poster_{}.png'.format(pretty_metadata.parameters['rating_key'])
@@ -2672,36 +2661,37 @@ class PUSHBULLET(Notifier):
                     file_response.pop('data', None)
                     data.update(file_response)
                 else:
-                    logger.error(u"Tautulli Notifiers :: Unable to upload image to {name}: "
-                                 u"[{r.status_code}] {r.reason}".format(name=self.NAME, r=r))
-                    logger.debug(u"Tautulli Notifiers :: Request response: {}".format(request.server_message(r, True)))
+                    logger.error("Tautulli Notifiers :: Unable to upload image to {name}: "
+                                 "[{r.status_code}] {r.reason}".format(name=self.NAME, r=r))
+                    logger.debug("Tautulli Notifiers :: Request response: {}".format(request.server_message(r, True)))
 
         return self.make_request('https://api.pushbullet.com/v2/pushes', headers=headers, json=data)
 
     def get_devices(self):
+        devices = {'': ''}
+
         if self.config['api_key']:
             headers = {'Content-type': "application/json",
                        'Access-Token': self.config['api_key']
                        }
+            try:
+                r = requests.get('https://api.pushbullet.com/v2/devices', headers=headers)
 
-            r = requests.get('https://api.pushbullet.com/v2/devices', headers=headers)
+                if r.status_code == 200:
+                    response_data = r.json()
+                    pushbullet_devices = response_data.get('devices', [])
+                    devices.update({d['iden']: d['nickname'] for d in pushbullet_devices if d['active']})
+                else:
+                    logger.error("Tautulli Notifiers :: Unable to retrieve {name} devices list: "
+                                 "[{r.status_code}] {r.reason}".format(name=self.NAME, r=r))
+                    logger.debug("Tautulli Notifiers :: Request response: {}".format(request.server_message(r, True)))
 
-            if r.status_code == 200:
-                response_data = r.json()
-                devices = response_data.get('devices', [])
-                devices = {d['iden']: d['nickname'] for d in devices if d['active']}
-                devices.update({'': ''})
-                return devices
-            else:
-                logger.error(u"Tautulli Notifiers :: Unable to retrieve {name} devices list: "
-                             u"[{r.status_code}] {r.reason}".format(name=self.NAME, r=r))
-                logger.debug(u"Tautulli Notifiers :: Request response: {}".format(request.server_message(r, True)))
-                return {'': ''}
+            except Exception as e:
+                logger.error("Tautulli Notifiers :: Unable to retrieve {name} devices list: {msg}".format(name=self.NAME, msg=e))
 
-        else:
-            return {'': ''}
+        return devices
 
-    def return_config_options(self):
+    def _return_config_options(self):
         config_option = [{'label': 'Pushbullet Access Token',
                           'value': self.config['api_key'],
                           'name': 'pushbullet_api_key',
@@ -2763,14 +2753,14 @@ class PUSHOVER(Notifier):
     def agent_notify(self, subject='', body='', action='', **kwargs):
         data = {'token': self.config['api_token'],
                 'user': self.config['key'],
-                'message': body.encode("utf-8"),
+                'message': body,
                 'sound': self.config['sound'],
                 'html': self.config['html_support'],
                 'priority': self.config['priority'],
-                'timestamp': int(time.time())}
+                'timestamp': helpers.timestamp()}
 
         if self.config['incl_subject']:
-            data['title'] = subject.encode("utf-8")
+            data['title'] = subject
 
         if self.config['priority'] == 2:
             data['retry'] = max(30, self.config['retry'])
@@ -2809,7 +2799,7 @@ class PUSHOVER(Notifier):
                 poster_content = result[0]
             else:
                 poster_content = ''
-                logger.error(u"Tautulli Notifiers :: Unable to retrieve image for {name}.".format(name=self.NAME))
+                logger.error("Tautulli Notifiers :: Unable to retrieve image for {name}.".format(name=self.NAME))
 
             if poster_content:
                 poster_filename = 'poster_{}.png'.format(pretty_metadata.parameters['rating_key'])
@@ -2859,15 +2849,15 @@ class PUSHOVER(Notifier):
         #         print sounds
         #         return sounds
         #     else:
-        #         logger.error(u"Tautulli Notifiers :: Unable to retrieve {name} sounds list: "
-        #                      u"[{r.status_code}] {r.reason}".format(name=self.NAME, r=r))
-        #         logger.debug(u"Tautulli Notifiers :: Request response: {}".format(request.server_message(r, True)))
+        #         logger.error("Tautulli Notifiers :: Unable to retrieve {name} sounds list: "
+        #                      "[{r.status_code}] {r.reason}".format(name=self.NAME, r=r))
+        #         logger.debug("Tautulli Notifiers :: Request response: {}".format(request.server_message(r, True)))
         #         return {'': ''}
         #
         # else:
         #     return {'': ''}
 
-    def return_config_options(self):
+    def _return_config_options(self):
         config_option = [{'label': 'Pushover API Token',
                           'value': self.config['api_token'],
                           'name': 'pushover_api_token',
@@ -3001,27 +2991,39 @@ class SCRIPTS(Notifier):
         for root, dirs, files in os.walk(scriptdir):
             for f in files:
                 name, ext = os.path.splitext(f)
-                if ext in self.script_exts.keys():
+                if ext in self.script_exts:
                     rfp = os.path.join(os.path.relpath(root, scriptdir), f)
                     fp = os.path.join(root, f)
                     scripts[fp] = rfp
 
         return scripts
 
-    def run_script(self, script):
+    def run_script(self, script, user_id):
         # Common environment variables
-        env = os.environ.copy()
-        env.update({
+        custom_env = {
             'PLEX_URL': plexpy.CONFIG.PMS_URL,
             'PLEX_TOKEN': plexpy.CONFIG.PMS_TOKEN,
+            'PLEX_USER_TOKEN': '',
             'TAUTULLI_URL': helpers.get_plexpy_url(hostname='localhost'),
             'TAUTULLI_PUBLIC_URL': plexpy.CONFIG.HTTP_BASE_URL + plexpy.HTTP_ROOT,
             'TAUTULLI_APIKEY': plexpy.CONFIG.API_KEY,
-            'TAUTULLI_ENCODING': plexpy.SYS_ENCODING
-            })
+            'TAUTULLI_ENCODING': plexpy.SYS_ENCODING,
+            'TAUTULLI_PYTHON_VERSION': '.'.join(map(str, plexpy.PYTHON_VERSION))
+            }
 
-        if self.pythonpath:
-            env['PYTHONPATH'] = os.pathsep.join([p for p in sys.path if p])
+        if user_id:
+            user_tokens = users.Users().get_tokens(user_id=user_id)
+            if user_tokens and user_tokens['server_token']:
+                custom_env['PLEX_USER_TOKEN'] = str(user_tokens['server_token'])
+
+        if self.pythonpath and plexpy.INSTALL_TYPE not in ('windows', 'macos'):
+            custom_env['PYTHONPATH'] = os.pathsep.join([p for p in sys.path if p])
+
+        if plexpy.PYTHON2:
+            custom_env = {k.encode('utf-8'): v.encode('utf-8') for k, v in custom_env.items()}
+
+        env = os.environ.copy()
+        env.update(custom_env)
 
         try:
             process = subprocess.Popen(script,
@@ -3041,30 +3043,31 @@ class SCRIPTS(Notifier):
                     timer.start()
                 output, error = process.communicate()
                 status = process.returncode
+                logger.debug("Tautulli Notifiers :: Subprocess returned with status code %s." % status)
             finally:
                 if timer:
                     timer.cancel()
 
         except OSError as e:
-            logger.error(u"Tautulli Notifiers :: Failed to run script: %s" % e)
+            logger.error("Tautulli Notifiers :: Failed to run script: %s" % e)
             return False
 
         if error:
-            err = '\n  '.join([l for l in error.splitlines()])
+            err = '\n  '.join(error.decode('utf-8').splitlines())
             logger.error("Tautulli Notifiers :: Script error: \n  %s" % err)
 
         if output:
-            out = '\n  '.join([l for l in output.splitlines()])
+            out = '\n  '.join(output.decode('utf-8').splitlines())
             logger.debug("Tautulli Notifiers :: Script returned: \n  %s" % out)
 
         if not self.script_killed:
-            logger.info(u"Tautulli Notifiers :: Script notification sent.")
+            logger.info("Tautulli Notifiers :: Script notification sent.")
             return True
 
     def kill_script(self, process):
         process.kill()
         self.script_killed = True
-        logger.warn(u"Tautulli Notifiers :: Script exceeded timeout limit of %d seconds. "
+        logger.warn("Tautulli Notifiers :: Script exceeded timeout limit of %d seconds. "
                     "Script killed." % self.config['timeout'])
 
     def agent_notify(self, subject='', body='', action='', **kwargs):
@@ -3075,44 +3078,32 @@ class SCRIPTS(Notifier):
                   action(string): 'play'
         """
         if not self.config['script_folder']:
-            logger.error(u"Tautulli Notifiers :: No script folder specified.")
+            logger.error("Tautulli Notifiers :: No script folder specified.")
             return
 
         script_args = helpers.split_args(kwargs.get('script_args', subject))
 
-        logger.debug(u"Tautulli Notifiers :: Trying to run notify script, action: %s, arguments: %s"
+        logger.debug("Tautulli Notifiers :: Trying to run notify script, action: %s, arguments: %s"
                      % (action, script_args))
 
         script = kwargs.get('script', self.config.get('script', ''))
+        user_id = kwargs.get('parameters', {}).get('user_id')
 
         # Don't try to run the script if the action does not have one
         if action and not script:
-            logger.debug(u"Tautulli Notifiers :: No script selected for action %s, exiting..." % action)
+            logger.debug("Tautulli Notifiers :: No script selected for action %s, exiting..." % action)
             return
         elif not script:
-            logger.debug(u"Tautulli Notifiers :: No script selected, exiting...")
+            logger.debug("Tautulli Notifiers :: No script selected, exiting...")
             return
 
         name, ext = os.path.splitext(script)
         prefix = self.script_exts.get(ext, '')
 
-        if os.name == 'nt':
-            script = script.encode(plexpy.SYS_ENCODING, 'ignore')
-
         if prefix:
             script = prefix.split() + [script]
         else:
             script = [script]
-
-        # For manual notifications
-        # if script_args and isinstance(script_args, basestring):
-        #     # attemps for format it for the user
-        #     script_args = [arg for arg in shlex.split(script_args.encode(plexpy.SYS_ENCODING, 'ignore'))]
-
-        # Windows handles unicode very badly.
-        # https://bugs.python.org/issue19264
-        if script_args:  # and os.name == 'nt':
-            script_args = [arg.encode(plexpy.SYS_ENCODING, 'ignore') for arg in script_args]
 
         # Allow overrides for PYTHONPATH
         if prefix and script_args:
@@ -3128,16 +3119,19 @@ class SCRIPTS(Notifier):
 
         script.extend(script_args)
 
-        logger.debug(u"Tautulli Notifiers :: Full script is: %s" % script)
-        logger.debug(u"Tautulli Notifiers :: Executing script in a new thread.")
-        thread = threading.Thread(target=self.run_script, args=(script,)).start()
+        if plexpy.PYTHON2:
+            script = [s.encode(plexpy.SYS_ENCODING, 'ignore') for s in script]
+
+        logger.debug("Tautulli Notifiers :: Full script is: %s" % script)
+        logger.debug("Tautulli Notifiers :: Executing script in a new thread.")
+        thread = threading.Thread(target=self.run_script, args=(script, user_id)).start()
 
         return True
 
-    def return_config_options(self):
+    def _return_config_options(self):
         config_option = [{'label': 'Supported File Types',
                           'description': '<span class="inline-pre">' + \
-                              ', '.join(self.script_exts.keys()) + '</span>',
+                              ', '.join(self.script_exts) + '</span>',
                           'input_type': 'help'
                           },
                          {'label': 'Script Folder',
@@ -3187,9 +3181,9 @@ class SLACK(Notifier):
 
     def agent_notify(self, subject='', body='', action='', **kwargs):
         if self.config['incl_subject']:
-            text = subject.encode('utf-8') + '\r\n' + body.encode("utf-8")
+            text = subject + '\r\n' + body
         else:
-            text = body.encode("utf-8")
+            text = body
 
         data = {'text': text}
         if self.config['channel'] and self.config['channel'].startswith('#'):
@@ -3218,7 +3212,7 @@ class SLACK(Notifier):
             poster_url = pretty_metadata.get_poster_url()
             provider_name = pretty_metadata.get_provider_name(provider)
             provider_link = pretty_metadata.get_provider_link(provider)
-            title = pretty_metadata.get_title()
+            title = pretty_metadata.get_title('\u00B7')
             description = pretty_metadata.get_description()
             plex_url = pretty_metadata.get_plex_url()
 
@@ -3257,7 +3251,7 @@ class SLACK(Notifier):
 
         return self.make_request(self.config['hook'], headers=headers, json=data)
 
-    def return_config_options(self):
+    def _return_config_options(self):
         config_option = [{'label': 'Slack Webhook URL',
                           'value': self.config['hook'],
                           'name': 'slack_hook',
@@ -3298,8 +3292,8 @@ class SLACK(Notifier):
                           'value': self.config['incl_card'],
                           'name': 'slack_incl_card',
                           'description': 'Include an info card with a poster and metadata with the notifications.<br>'
-                                         'Note: <a data-tab-destination="tabs-notifications" data-dismiss="modal" '
-                                         'data-target="#notify_upload_posters">Image Hosting</a> '
+                                         'Note: <a data-tab-destination="3rd_party_apis" data-dismiss="modal" '
+                                         'data-target="notify_upload_posters">Image Hosting</a> '
                                          'must be enabled under the notifications settings tab.',
                           'input_type': 'checkbox'
                           },
@@ -3366,9 +3360,9 @@ class TELEGRAM(Notifier):
         data = {'chat_id': self.config['chat_id']}
 
         if self.config['incl_subject']:
-            text = subject.encode('utf-8') + '\r\n' + body.encode('utf-8')
+            text = subject + '\r\n' + body
         else:
-            text = body.encode('utf-8')
+            text = body
 
         if self.config['html_support']:
             data['parse_mode'] = 'HTML'
@@ -3383,16 +3377,16 @@ class TELEGRAM(Notifier):
                 poster_content = result[0]
             else:
                 poster_content = ''
-                logger.error(u"Tautulli Notifiers :: Unable to retrieve image for {name}.".format(name=self.NAME))
+                logger.error("Tautulli Notifiers :: Unable to retrieve image for {name}.".format(name=self.NAME))
 
             if poster_content:
                 poster_filename = 'poster_{}.png'.format(pretty_metadata.parameters['rating_key'])
                 files = {'photo': (poster_filename, poster_content, 'image/png')}
 
-                if len(text) > 200:
+                if len(text) > 1024:
                     data['disable_notification'] = True
                 else:
-                    data['caption'] = text
+                    data['caption'] = text.encode('utf-8')
 
                 r = self.make_request('https://api.telegram.org/bot{}/sendPhoto'.format(self.config['bot_token']),
                                       data=data, files=files)
@@ -3400,7 +3394,7 @@ class TELEGRAM(Notifier):
                 if not data.pop('disable_notification', None):
                     return r
 
-        data['text'] = text
+        data['text'] = (text[:4093] + (text[4093:] and '...')).encode('utf-8')
 
         if self.config['disable_web_preview']:
             data['disable_web_page_preview'] = True
@@ -3410,7 +3404,7 @@ class TELEGRAM(Notifier):
         return self.make_request('https://api.telegram.org/bot{}/sendMessage'.format(self.config['bot_token']),
                                  headers=headers, data=data)
 
-    def return_config_options(self):
+    def _return_config_options(self):
         config_option = [{'label': 'Telegram Bot Token',
                           'value': self.config['bot_token'],
                           'name': 'telegram_bot_token',
@@ -3481,16 +3475,16 @@ class TWITTER(Notifier):
         access_token = self.config['access_token']
         access_token_secret = self.config['access_token_secret']
 
-        # logger.info(u"Tautulli Notifiers :: Sending tweet: " + message)
+        # logger.info("Tautulli Notifiers :: Sending tweet: " + message)
 
         api = twitter.Api(consumer_key, consumer_secret, access_token, access_token_secret)
 
         try:
             api.PostUpdate(message, media=attachment)
-            logger.info(u"Tautulli Notifiers :: {name} notification sent.".format(name=self.NAME))
+            logger.info("Tautulli Notifiers :: {name} notification sent.".format(name=self.NAME))
             return True
         except Exception as e:
-            logger.error(u"Tautulli Notifiers :: {name} notification failed: {e}".format(name=self.NAME, e=e))
+            logger.error("Tautulli Notifiers :: {name} notification failed: {e}".format(name=self.NAME, e=e))
             return False
 
     def agent_notify(self, subject='', body='', action='', **kwargs):
@@ -3508,7 +3502,7 @@ class TWITTER(Notifier):
         else:
             return self._send_tweet(body, attachment=poster_url)
 
-    def return_config_options(self):
+    def _return_config_options(self):
         config_option = [{'label': 'Twitter Consumer Key',
                           'value': self.config['consumer_key'],
                           'name': 'twitter_consumer_key',
@@ -3543,8 +3537,8 @@ class TWITTER(Notifier):
                           'value': self.config['incl_poster'],
                           'name': 'twitter_incl_poster',
                           'description': 'Include a poster with the notifications.<br>'
-                                         'Note: <a data-tab-destination="tabs-notifications" data-dismiss="modal" '
-                                         'data-target="#notify_upload_posters">Image Hosting</a> '
+                                         'Note: <a data-tab-destination="3rd_party_apis" data-dismiss="modal" '
+                                         'data-target="notify_upload_posters">Image Hosting</a> '
                                          'must be enabled under the notifications settings tab.',
                           'input_type': 'checkbox'
                           }
@@ -3559,25 +3553,41 @@ class WEBHOOK(Notifier):
     """
     NAME = 'Webhook'
     _DEFAULT_CONFIG = {'hook': '',
-                       'method': ''
+                       'method': 'POST'
                        }
 
     def agent_notify(self, subject='', body='', action='', **kwargs):
+        subject = kwargs.get('headers', subject)
+        if subject:
+            try:
+                webhook_headers = json.loads(subject)
+            except ValueError as e:
+                logger.error("Tautulli Notifiers :: Invalid {name} json header data: {e}".format(name=self.NAME, e=e))
+                return False
+        else:
+            webhook_headers = None
+
         if body:
             try:
-                webhook_data = json.loads(body)
+                webhook_body = json.loads(body)
             except ValueError as e:
-                logger.error(u"Tautulli Notifiers :: Invalid {name} json data: {e}".format(name=self.NAME, e=e))
+                logger.error("Tautulli Notifiers :: Invalid {name} json body data: {e}".format(name=self.NAME, e=e))
                 return False
-
         else:
-            webhook_data = None
+            webhook_body = None
 
-        headers = {'Content-type': 'application/json'}
+        headers = {'Content-Type': 'application/json'}
+        if webhook_headers:
+            headers.update(webhook_headers)
 
-        return self.make_request(self.config['hook'], method=self.config['method'], headers=headers, json=webhook_data)
+        if headers['Content-Type'] == 'application/json':
+            data = {'json': webhook_body}
+        else:
+            data = {'data': webhook_body}
 
-    def return_config_options(self):
+        return self.make_request(self.config['hook'], method=self.config['method'], headers=headers, **data)
+
+    def _return_config_options(self):
         config_option = [{'label': 'Webhook URL',
                           'value': self.config['hook'],
                           'name': 'webhook_hook',
@@ -3589,8 +3599,7 @@ class WEBHOOK(Notifier):
                           'name': 'webhook_method',
                           'description': 'The Webhook HTTP request method.',
                           'input_type': 'select',
-                          'select_options': {'': '',
-                                             'GET': 'GET',
+                          'select_options': {'GET': 'GET',
                                              'POST': 'POST',
                                              'PUT': 'PUT',
                                              'DELETE': 'DELETE'}
@@ -3650,7 +3659,7 @@ class XBMC(Notifier):
             image = os.path.join(plexpy.DATA_DIR, os.path.abspath("data/interfaces/default/images/logo-circle.png"))
 
         for host in hosts:
-            logger.info(u"Tautulli Notifiers :: Sending notification command to XMBC @ " + host)
+            logger.info("Tautulli Notifiers :: Sending notification command to XMBC @ " + host)
             try:
                 version = self._sendjson(host, 'Application.GetProperties', {'properties': ['version']})['version']['major']
 
@@ -3666,15 +3675,15 @@ class XBMC(Notifier):
                 if not request:
                     raise Exception
                 else:
-                    logger.info(u"Tautulli Notifiers :: {name} notification sent.".format(name=self.NAME))
+                    logger.info("Tautulli Notifiers :: {name} notification sent.".format(name=self.NAME))
 
             except Exception as e:
-                logger.error(u"Tautulli Notifiers :: {name} notification failed: {e}".format(name=self.NAME, e=e))
+                logger.error("Tautulli Notifiers :: {name} notification failed: {e}".format(name=self.NAME, e=e))
                 return False
 
         return True
 
-    def return_config_options(self):
+    def _return_config_options(self):
         config_option = [{'label': 'Kodi Host Address',
                           'value': self.config['hosts'],
                           'name': 'xbmc_hosts',
@@ -3733,9 +3742,9 @@ class ZAPIER(Notifier):
         return self.agent_notify(_test_data=_test_data)
 
     def agent_notify(self, subject='', body='', action='', **kwargs):
-        data = {'subject': subject.encode("utf-8"),
-                'body': body.encode("utf-8"),
-                'action': action.encode("utf-8")}
+        data = {'subject': subject,
+                'body': body,
+                'action': action}
 
         if kwargs.get('parameters', {}).get('media_type'):
             # Grab formatted metadata
@@ -3767,7 +3776,7 @@ class ZAPIER(Notifier):
 
         return self.make_request(self.config['hook'], headers=headers, json=data)
 
-    def return_config_options(self):
+    def _return_config_options(self):
         config_option = [{'label': 'Zapier Webhook URL',
                           'value': self.config['hook'],
                           'name': 'zapier_hook',
@@ -3809,7 +3818,7 @@ class ZAPIER(Notifier):
 
 
 def upgrade_config_to_db():
-    logger.info(u"Tautulli Notifiers :: Upgrading to new notification system...")
+    logger.info("Tautulli Notifiers :: Upgrading to new notification system...")
 
     # Set flag first in case something fails we don't want to keep re-adding the notifiers
     plexpy.CONFIG.__setattr__('UPDATE_NOTIFIERS_DB', 0)
@@ -3886,7 +3895,7 @@ def upgrade_config_to_db():
 
             # Update the new config with the old config values
             notifier_config = {}
-            for conf, val in notifier_default_config.iteritems():
+            for conf, val in notifier_default_config.items():
                 c_key = agent_config_key + '_' + config_key_overrides.get(agent, {}).get(conf, conf)
                 notifier_config[agent + '_' + conf] = agent_config.get(c_key, val)
 
@@ -3910,8 +3919,8 @@ def upgrade_config_to_db():
                 for script, actions in script_actions.items():
                     if any(agent_actions[a] for a in actions):
                         temp_config = notifier_config
-                        temp_config.update({a: 0 for a in agent_actions.keys()})
-                        temp_config.update({a + '_subject': '' for a in agent_actions.keys()})
+                        temp_config.update({a: 0 for a in agent_actions})
+                        temp_config.update({a + '_subject': '' for a in agent_actions})
                         for a in actions:
                             if agent_actions[a]:
                                 temp_config[a] = agent_actions[a]

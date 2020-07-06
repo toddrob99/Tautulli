@@ -1,7 +1,466 @@
 # Changelog
 
+## v2.5.2 (2020-07-01)
+
+* Announcements:
+  * Tautulli now supports Python 3!
+  * Python 2 is still supported for the time being, but it is recommended to upgrade to Python 3.
+* Notifications:
+  * Fix: Error uploading images to Cloudinary on Python 2.
+  * Fix: Testing browser notifications alert not disappearing.
+  * Change: Default recently added notification delay set to 300 seconds.
+* UI: 
+  * Fix: MacOS menu bar icon causing Tautulli to fail to start.
+  * Fix: Unable to login to Tautulli on Python 2.
+  * New: Windows and MacOS setting to enable Tautulli to start automatically when you login.
+  * New: Added menu bar icon for MacOS.
+  * New: Ability to import a Tautulli database in the settings.
+  * New: Added Tautulli news area on the settings page.
+  * New: Added platform icon for LG devices.
+  * Remove: Ability to login to Tautulli using a Plex username and password has been removed. Login using a Plex.tv account is only supported via OAuth.
+* Mobile App:
+  * Fix: Improved API security and validation when registering the Android app.
+* Docker:
+  * Fix: Docker container not respecting the PUID and PGID environment variables.
+* Other:
+  * Fix: Error creating self-signed certificates on Python 3.
+  * Fix: Tautulli login session cookie not set on the HTTP root path.
+  * New: Windows and MacOS app installers to install Tautulli without needing Python installed.
+
+
+## v2.2.4 (2020-05-16)
+
+* Monitoring:
+  * Fix: Show "None" as the subtitle source on the activity card for user selected subtitles.
+* UI:
+  * Fix: Deleted libraries were showing up on the homepage library cards.
+  * Fix: Libraries could get stuck as inactive in the database in some instances.
+* API:
+  * Fix: Incorrect title was being returned for the get_history API command.
+* Other:
+  * Fix: Plex remote access check was not being rescheduled after changing the settings.
+
+
+## v2.2.3 (2020-05-01)
+
+* Notifications:
+  * Fix: Notification grouping by season/album and show/artist not enabled by default.
+  * Fix: The rating key notification parameter was being overwritten when 3rd party lookup was enabled.
+  * Fix: Missing artist value for Musicbrainz lookup in certain situations. 
+  * New: Added notification trigger for Tautulli database corruption.
+  * New: Added TAUTULLI_PYTHON_VERSION to script notification environment variables.
+  * New: Added Plex Android / iOS App notification agent.
+  * New: Added bandwidth notification parameters.
+  * New: Added user thumb to notification parameters.
+  * New: Added initial stream notification parameter and threshold setting to determine if a stream is the first stream of a continuous streaming session.
+  * New: Added Plex remote access notification parameters.
+  * Change: The file size notification parameter is now reported in SI units. (Thanks @aaronldunlap)
+* UI:
+  * Fix: Delete lookup info from the media info page failing.
+  * Fix: XBMC platform icon not being redirected to the Kodi platform icon.
+  * Fix: History table was not being refreshed after deleting entries.
+  * New: Added icon on the users table to indicate if the user is not on the Plex server.
+  * New: Added icon on the libraries table to indicate if the library is not on the Plex server.
+  * Change: Improved deleting libraries so libraries with the same section ID are not also deleted.
+* Mobile App:
+  * Fix: Temporary device token was not being invalidated after cancelling device registration.
+* API:
+  * Fix: Returning XML from the API failing due to unicode characters.
+  * Fix: Grouping parameter for various API commands not falling back to default setting.
+  * New: Added time_queries parameter to get_library_watch_time_stats and get_user_watch_time_stats API command. (Thanks @KaasKop97)
+  * New: Added an "is_active" return value to the get_user, get_users, get_library, and get_libraries API commands which indicates if the user or library is on the Plex server.
+  * New: Added delete_history API command.
+  * Change: Added optional parameter for row_ids for delete_library, delete_user, delete_all_library_history, and delete_all_user_history API commands.
+* Other:
+  * Fix: Update failing on CentOS due to an older git version.
+  * Fix: Manifest file for creating a web app had incorrect info.
+  * Fix: Auto-updater was not scheduled when enabling the setting unless Tautulli was restarted.
+  * New: Docker images updated to support ARM platforms.
+  * Change: Remove the unnecessary optional Plex logs volume from the Docker image.
+  * Change: Use Plex.tv for GeoIP lookup instead of requiring the MaxMind GeoLite2 database.
+
+
+## v2.2.1 (2020-03-28)
+
+* Notifications:
+  * Fix: File size notification parameter incorrectly truncated to an integer.
+  * Fix: Notification grouping by season/album not enabled by default.
+  * New: Added transcode decision counts to notification parameters.
+  * Change: Tags (<>) are no longer stripped from from Webhook notification text.
+* Newsletter:
+  * New: Added favicon to newsletter template when viewing as a web page.
+* UI:
+  * Fix: Username missing from the Synced Items table.
+  * Fix: Windows system tray icon not enabled by default.
+  * Fix: Saving a mobile device with a blank friendly name caused an error.
+  * New: Added IMDb and Rotten Tomato Ratings to info pages.
+  * New: Added button in settings to delete all 3rd party metadata lookup info in the database.
+  * New: Added button in settings to flush recently added items in the database.
+* API:
+  * New: Added delete_recenly_added API command to flush recently added items.
+  * Change: Updated delete_lookup_info API command parameters to allow deleteing all 3rd party metadata lookup info.
+
+
+## v2.2.0 (2020-03-08)
+
+* Important Note!
+  * All Live TV changes requires Plex Media Server 1.18.7 or higher. 
+* Monitoring:
+  * Fix: Improved IPv6 display on the activity cards. (Thanks @felixbuenemann)
+  * New: Added Live TV metadata and posters to the activity cards.
+  * Change: Show bandwidth in Gbps when greater than 1000 Mbps.
+* History:
+  * New: Added history logging for Live TV sessions.
+  * New: Added a fake "Live TV" library to collect Live TV history.
+    * Note: This library will show up the first time that Live TV is played.
+  * New: Added the ability to filter history by Live TV.
+* Graphs:
+  * New: Added Live TV series to the "Plays by Period" and "Play Totals" graphs.
+  * Change: Media type series on the graphs are only shown if the corresponding library type is present.
+* Notifications:
+  * Fix: Race condition causing stream count to be incorrect for playback stop notifications.
+  * New: Added Live TV channel notification parameters.
+  * New: Added Plex background art notification parameter.
+    * Note: This is the Plex API endpoint to retrieve the background art, not the actual image.
+  * New: Added poster images for clip notifications.
+  * Change: Default Webhook notification method to POST.
+* UI:
+  * Fix: Windows platform showing up twice on the Most Active Platforms statistics card.
+  * New: Added option to change the background art for library sections when editing a library.
+  * New: Added button to reset Tautulli git installation in settings to fix failed git updates.
+* API:
+  * New: Added ability to filter history using a "live" media type and by guid for the get_history API command.
+  * New: Added cutsom_art parameter to the edit_library API command.
+* Other:
+  * Change: Add crossorigin use-credentials attribute to manifest tags. (Thanks @pkoenig10)
+  * Change: Disable automatic updates for Docker containers. Updates are now handled by updating the Docker container.
+    * Note: If you are using an old Docker container created before v2.2.0, then you may need to completely remove and recreate the container to update for the first time.
+    * Note: Use the ":latest" Docker tag for the newest stable release, or the ":beta" or ":nightly" tags to access the beta or nightly branches.
+
+
+## v2.1.44 (2020-02-05)
+
+* Monitoring:
+  * Fix: SDR source video being identified as HDR stream video.
+* Notifications:
+  * Fix: Unable to select condition operator for video color parameters.
+* UI:
+  * Fix: Capitalization for platforms on history tables.
+
+
+## v2.1.43 (2020-02-03)
+
+* Monitoring:
+  * New: Added HDR indicator on activity card.
+  * New: Added dynamic range to history steam info modal.
+* Notifications:
+  * Fix: Webhook notification body sent as incorrect data type when Content-Type header is overridden.
+  * Fix: Telegram notification character limit incorrect for unicode characters.
+  * New: Added color and dynamic range notification parameters.
+* Newsletters:
+  * Fix: Episodes and Albums plural spelling on recently added newsletter section headers.
+* UI:
+  * Fix: Windows and macOS platform capitalization.
+  * Fix: Season number 0 not shown for episodes on history tables.
+* Other:
+  * Change: Mask email addresses in logs.
+  * Change: Update deprecated GitHub access token URL parameter to Authorization header.  
+
+
+## v2.1.42 (2020-01-04)
+
+* Other:
+  * Fix: SSL certificate error when installing GeoLite2 database.
+  * Change: Verify MaxMind license key and GeoLite2 database path before installing.
+  * Change: Disable GeoLite2 database uninstall button when it is not installed.
+
+
+## v2.1.41 (2019-12-30)
+
+* Other:
+  * Fix: Failing to extract the GeoLite2 database on Windows.
+
+
+## v2.1.40 (2019-12-30)
+
+* UI:
+  * Change: Moved 3rd Party API settings to new tab in the settings.
+* Graphs:
+  * Change: Improve calculating month ranges for Play Totals graphs.
+* Other:
+  * Fix: Failing to verify a Plex Media Server using a hostname.
+  * Change: A license key is now required to install the MaxMind GeoLite2 database for IP geolocation. Please follow the guide in the wiki to reinstall the GeoLite2 database.
+  * Change: The GeoLite2 database will now automatically update periodically if installed.
+
+
+## v2.1.39 (2019-12-08)
+
+* UI:
+  * New: Added creating admin username and password to setup wizard.
+* API:
+  * Change: Remove default notification subject and body for notify API command.
+* Other:
+  * Change: Check for database corruption when making backup.
+
+
+## v2.1.38 (2019-11-17)
+
+* Notifications:
+  * New: Added custom JSON headers to the webhook notification agent.
+* UI:
+  * Fix: Homepage recently watched card not showing grouped history.
+* Other:
+  * New: Added GitHub sponsor donation option.
+  * Change: Improve resolving hostnames.
+
+
+## v2.1.37 (2019-10-11)
+
+* Notifications:
+  * Fix: Last.fm URLs linking to artist page instead of the album page.
+  * New: Added option for MusicBrainz lookup for music notifications. Option must be enabled under 3rd Party APIs in the settings.
+  * New: Added MusicBrainz ID and MusicBrainz URL notification parameters.
+  * Change: Automatically truncate Discord description summary to 2048 characters.
+
+
+## v2.1.36-beta (2019-10-05)
+
+* Monitoring:
+  * Fix: Activity card title not updating after pre-rolls or auto-play.
+* History:
+  * Fix: Display correct interlaced or progressive video scan type on stream data modal.
+* Graphs:
+  * New: Separate interlaced and progressive video scan type on source and stream resolution graphs.
+* API:
+  * New: Added parent_guid and grandparent_guid to get_activity and get_metadata commands.
+
+
+## v2.1.35-beta (2019-09-24)
+
+* Monitoring:
+  * Fix: Audio shown as blank on activity cards when changing audio tracks during direct play.
+  * Fix: Display correct interlaced or progressive video scan type on activity cards.
+  * New: Added flag for Nvidia hardware decoding on activity cards.
+* Notifications:
+  * Fix: Notification parameter prefix and suffix were not substituted correctly.
+  * Fix: Release Date notification parameter was incorrectly casted to an integer instead of a string.
+  * New: Added video scan type and full resolution notification parameters.
+* UI:
+  * Fix: Movies with the same title but different year being grouped on the homepage stats cards.
+* API:
+  * New: Added video scan type and full resolution values to get_activity command.
+* Other:
+  * Fix: Tautulli logging out every time after saving settings and restarting.
+
+
+## v2.1.34 (2019-09-03)
+
+* History:
+  * New: Added Product column to history tables.
+* Notifications:
+  * Fix: IMDB/TMDb/TVDB/TVmaze ID notification parameters showing blank values after lookup.
+* UI:
+  * Fix: Libraries and Users tables did not respect the group history setting.
+* API:
+  * Fix: Title field was not searchable in get_library_media_info command.
+  * New: Added grouping option to get_libraries_table and get_users_table commands.
+  * New: Added product value to get_history command.
+* Other:
+  * Fix: Could not verify Plex Media Server with unpublished hostnames.
+  * Change: Automatically logout all Tautulli instances when changing the admin password.
+
+
+## v2.1.33 (2019-07-27)
+
+* Notifications:
+  * Change: Mask notification agent password fields.
+  * Change: Enable searching by email address in dropdown menu.
+* Other:
+  * Fix: Version number being overwritten with "None" which prevented updating in some instances.
+  * Change: Update Plex OAuth request headers.
+
+
+## v2.1.32 (2019-06-26)
+
+* Newsletters:
+  * Fix: Newsletter scheduler issue for QNAP devices using an invalid "local" timezone preventing Tautulli from starting.
+
+
+## v2.1.31 (2019-06-24)
+
+* No additional changes from v2.1.31-beta.
+
+
+## v2.1.31-beta (2019-06-13)
+
+* Monitoring:
+  * Fix: Synced content showing incorrect stream info.
+* Other:
+  * Fix: Unable to view database status when authentication is enabled.
+  * Change: Default database synchronous mode changed to prevent database corruption. Database response may be slower.
+
+
+## v2.1.30-beta (2019-05-11)
+
+* Monitoring:
+  * Fix: Activity crashing with Plex's Artist TV feature.
+  * New: Added setting for Plex Media Server Update Check Interval. (Thanks @abiacco)
+* Notifications:
+  * New: Added secure and relayed connection notification parameters.
+  * New: Added PLEX_USER_TOKEN to script environment variables.
+  * Change: Schedule notifications using UTC to prevent missing notifications due to misconfigured timezones.
+* API:
+  * New: Added status API command to check the status of Tautulli.
+
+
+## v2.1.29 (2019-05-11)
+
+* No additional changes from v2.1.29-beta.
+
+
+## v2.1.29-beta (2019-04-14)
+
+* Monitoring:
+  * Change: "Required Bandwidth" changed to "Reserved Bandwidth" in order to match the Plex dashboard.
+* Notifications:
+  * New: Added prefix and suffix notification text modifiers. See the "Notification Text Modifiers" help modal for details.
+* UI:
+  * New: Added "Undelete" button to the edit library and edit user modals.
+  * Fix: User IP address history table showing incorrect "Last Seen" values.
+* API:
+  * Fix: Search API only returning 3 results.
+  * Fix: Terminate stream API failing when both session_key and session_id were provided.
+  * Change: Improved API response HTTP status codes and error messages.
+
+
+## v2.1.28 (2019-03-10)
+
+* Monitoring:
+  * New: Added secure/insecure connection icon on the activity cards. Requires Plex Media Server v1.15+.
+* Other:
+  * Change: Improved mass deleting of all images from Cloudinary. Requires all previous images on Cloudinary to be manually tagged with "tautulli". New uploads are automatically tagged.
+
+
+## v2.1.27-beta (2019-03-03)
+
+* Monitoring:
+  * Fix: Error when playing synced optimized versions.
+  * Change: Show message to complete the setup wizard instead of error communicating with server message.
+  * Change: URL changed on Plex.tv for Plex Media Server beta updates.
+* Notifications:
+  * New: Show the media type exclusion tags in the text preview modal.
+  * Fix: Unicode error in the Email notification failed response message.
+  * Fix: Error when a notification agent response is missing the "Content-Type" header.
+* UI:
+  * Fix: Usernames were not being sanitized in dropdown selectors.
+  * Change: Different display of "All" recently added items on the homepage due to change in the Plex Media Server v1.15+ API.
+* API:
+  * New: Added current Tautulli version to update_check API response.
+  * Change: API no longer returns sanitized HTML response data.
+* Other:
+  * New: Added auto-restart to systemd init script.
+  * Fix: Patreon donation URL.
+  * Remove: Crypto donation options.
+
+
+## v2.1.26 (2018-12-01)
+
+* Monitoring:
+  * Fix: Resume event not being triggered after buffering.
+* Notifications:
+  * New: Added user email as a notification parameter.
+* Graphs:
+  * Fix: History model showing no results for stream info graph.
+* API:
+  * Fix: API returning error when missing a cmd.
+
+
+## v2.1.25 (2018-11-03)
+
+* Monitoring:
+  * Fix: Audio and video codec showing up as * on the activity cards.
+  * New: Poster and background image on the activity cards for live TV.
+* UI:
+  * Fix: Alert message for invalid Tautulli Public Domain setting.
+
+
+## v2.1.24-beta (2018-10-29)
+
+* Monitoring:
+  * Fix: Transcode change events creating invalid sessions in the database.
+* Notifications:
+  * Change: Update Telegram character limit to 1024.
+* History:
+  * Fix: Save history table states separately for multiple Tautulli instances.
+* Graphs:
+  * Fix: Save graphs states separately for multiple Tautulli instances.
+  * Change: Version graphs to bypass browser cache.
+* UI:
+  * New: Added queued tasks modals to the scheduled tasks table for debugging.
+* Other:
+  * Change: Updated timezone info and display in configuration table.
+
+
+## v2.1.23-beta (2018-10-14)
+
+* Monitoring:
+  * Fix: Buffer events not being triggered properly.
+  * Fix: Watched progress sometimes not saved correctly. (Thanks @Sheigutn)
+* Notifications:
+  * New: Added notification trigger for transcode decision change.
+  * Fix: Multiple buffer notifications being triggered within the same second.
+  * Change: Default buffer notification threshold changed to 10 for buffer thresholds less than 10.
+* Newsletter:
+  * New: Added Other Video libraries to the newsletter.
+* Homepage:
+  * New: Added Other Video type to recently added on the homepage.
+  * Change: Save homepage recently added media type toggle state.
+  * Change: Save homepage stats config to local storage instead of the server.
+* History:
+  * Change: Save history table media type toggle state.
+* Graphs:
+  * Change: Save series visibility state when toggling the legend.
+  * Change: Save graph config to local storage instead of the server.
+* UI:
+  * New: Show the remote app device token and id in the edit device modal.
+  * Change: Lock certain settings if using the Tautulli docker container.
+* API:
+  * Fix: download_config, download_database, download_log, and download_plex_log API commands not working.
+  * Change: get_recently_added command 'type' parameter renamed to 'media_type'. Backwards compatibility is maintained.
+  * Change: get_home_stats command 'stats_type' parameter change to string 'plays' or 'duration'. Backwards compatibility is maintained.
+
+
+## v2.1.22 (2018-10-05)
+
+* Notifications:
+  * Fix: Notification agent settings not loading when failed to retrieve some data.
+* UI:
+  * Fix: Incorrectly showing localhost server in the setup wizard.
+* Other:
+  * Fix: Incorrect redirect to HTTP when HTTPS proxy header is present.
+  * Fix: Websocket not connecting automatically after the setup wizard.
+
+
+## v2.1.21 (2018-09-21)
+
+* Notifications:
+  * Fix: Content Rating notification condition always evaluating to True. (Thanks @Arcanemagus)
+  * Fix: Script arguments not showing substituted values in the notification logs.
+* UI:
+  * New: Unsupported browser warning when using IE or Edge.
+  * Fix: Misaligned refresh image icon in album search results. (Thanks @Sheigutn)
+  * Fix: Music history showing as pre-Tautulli in stream info modal.
+* Other:
+  * Fix: Typo in Systemd init script group value. (Thanks @ldumont)
+  * Fix: Execute permissions in Fedora/CentOS and Systemd init scripts. (Thanks @wilmardo)
+  * Fix: Systemd init script instructions per Linux distro. (Thanks @samwiseg00)
+  * Change: Fallback to Tautulli data directory if logs/backup/cache/newsletter directories are not writable.
+  * Change: Check for alternative reverse proxy headers if X-Forwarded-Host is missing.
+
+
 ## v2.1.20 (2018-09-05)
-* No changes.
+
+* No additional changes from v2.1.20-beta.
 
 
 ## v2.1.20-beta (2018-09-02)

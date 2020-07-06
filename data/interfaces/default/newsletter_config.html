@@ -123,7 +123,7 @@
                                         <div class="row">
                                             <div class="col-md-12">
                                                 <select class="form-control" id="${item['name']}" name="${item['name']}">
-                                                    % for key, value in sorted(item['select_options'].iteritems()):
+                                                    % for key, value in sorted(item['select_options'].items()):
                                                     % if key == item['value']:
                                                     <option value="${key}" selected>${value}</option>
                                                     % else:
@@ -144,7 +144,7 @@
                                                     <option value="select-all">Select All</option>
                                                     <option value="remove-all">Remove All</option>
                                                     % if isinstance(item['select_options'], dict):
-                                                    % for section, options in item['select_options'].iteritems():
+                                                    % for section, options in item['select_options'].items():
                                                     <optgroup label="${section}">
                                                         % for option in sorted(options, key=lambda x: x['text'].lower()):
                                                             <option value="${option['value']}">${option['text']}</option>
@@ -271,7 +271,7 @@
                                         </div>
                                         <p class="help-block">
                                             Select an existing notification agent where the subject and body text will be sent.<br>
-                                            Note: Self-hosted newsletters must be enabled under <a data-tab-destination="tabs-notifications" data-dismiss="modal" data-target="#newsletter_self_hosted">Newsletters</a> to include a link to the newsletter.
+                                            Note: Self-hosted newsletters must be enabled under <a data-tab-destination="notifications" data-dismiss="modal" data-target="newsletter_self_hosted">Newsletters</a> to include a link to the newsletter.
                                         </p>
                                     </div>
                                     <div id="newsletter-email-config">
@@ -325,7 +325,7 @@
                                             <div class="row">
                                                 <div class="col-md-12">
                                                     <select class="form-control" id="${item['name']}" name="${item['name']}">
-                                                        % for key, value in sorted(item['select_options'].iteritems()):
+                                                        % for key, value in sorted(item['select_options'].items()):
                                                         % if key == item['value']:
                                                         <option value="${key}" selected>${value}</option>
                                                         % else:
@@ -346,7 +346,7 @@
                                                         <option value="select-all">Select All</option>
                                                         <option value="remove-all">Remove All</option>
                                                         % if isinstance(item['select_options'], dict):
-                                                        % for section, options in item['select_options'].iteritems():
+                                                        % for section, options in item['select_options'].items():
                                                         <optgroup label="${section}">
                                                             % for option in sorted(options, key=lambda x: x['text'].lower()):
                                                                 <option value="${option['value']}">${option['text']}</option>
@@ -584,6 +584,7 @@
     var $email_selectors = $('#newsletter_email_to, #newsletter_email_cc, #newsletter_email_bcc').selectize({
         plugins: ['remove_button'],
         maxItems: null,
+        searchField: ['text', 'value'],
         render: {
             item: function(item, escape) {
                 return '<div>' +

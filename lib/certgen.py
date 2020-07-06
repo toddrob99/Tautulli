@@ -76,7 +76,7 @@ def createCertificate(req, issuerCertKey, serial, validityPeriod, digest="sha256
     cert.sign(issuerKey, digest)
     return cert
 
-def createSelfSignedCertificate((issuerName, issuerKey), serial, (notBefore, notAfter), altNames, digest="sha256"):
+def createSelfSignedCertificate(issuerName, issuerKey, serial, notBefore, notAfter, altNames, digest="sha256"):
     """
     Generate a certificate given a certificate request.
     Arguments: issuerName - The name of the issuer
@@ -100,7 +100,7 @@ def createSelfSignedCertificate((issuerName, issuerKey), serial, (notBefore, not
     cert.set_pubkey(issuerKey)
 
     if altNames:
-        cert.add_extensions([crypto.X509Extension("subjectAltName", False, altNames)])
+        cert.add_extensions([crypto.X509Extension(b"subjectAltName", False, altNames)])
 
     cert.sign(issuerKey, digest)
     return cert

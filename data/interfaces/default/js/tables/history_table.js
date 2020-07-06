@@ -36,10 +36,10 @@ history_table_options = {
             "targets": [0],
             "data": null,
             "createdCell": function (td, cellData, rowData, row, col) {
-                if (rowData['id'] === null) {
+                if (rowData['row_id'] === null) {
                     $(td).html('');
                 } else {
-                    $(td).html('<button class="btn btn-xs btn-warning" data-id="' + rowData['id'] + '"><i class="fa fa-trash-o fa-fw"></i> Delete</button>');
+                    $(td).html('<button class="btn btn-xs btn-warning" data-id="' + rowData['row_id'] + '"><i class="fa fa-trash-o fa-fw"></i> Delete</button>');
                 }
             },
             "width": "5%",
@@ -49,7 +49,7 @@ history_table_options = {
         },
         {
             "targets": [1],
-            "data":"date",
+            "data": "date",
             "createdCell": function (td, cellData, rowData, row, col) {
                 var date = moment(cellData, "X").format(date_format);
                 if (rowData['state'] !== null) {
@@ -77,13 +77,13 @@ history_table_options = {
         },
         {
             "targets": [2],
-            "data":"friendly_name",
+            "data": "friendly_name",
             "createdCell": function (td, cellData, rowData, row, col) {
                 if (cellData !== '') {
                     if (rowData['user_id']) {
-                        $(td).html('<a href="user?user_id=' + rowData['user_id'] + '">' + cellData + '</a>');
+                        $(td).html('<a href="' + page('user', rowData['user_id']) + '">' + cellData + '</a>');
                     } else {
-                        $(td).html('<a href="user?user=' + rowData['user'] + '">' + cellData + '</a>');
+                        $(td).html('<a href="' + page('user', null, rowData['user']) + '">' + cellData + '</a>');
                     }
                 } else {
                     $(td).html(cellData);
@@ -112,7 +112,7 @@ history_table_options = {
         },
         {
             "targets": [4],
-            "data":"platform",
+            "data": "platform",
             "createdCell": function (td, cellData, rowData, row, col) {
                 if (cellData !== '') {
                     $(td).html(cellData);
@@ -123,6 +123,17 @@ history_table_options = {
         },
         {
             "targets": [5],
+            "data": "product",
+            "createdCell": function (td, cellData, rowData, row, col) {
+                if (cellData !== '') {
+                    $(td).html(cellData);
+                }
+            },
+            "width": "10%",
+            "className": "no-wrap"
+        },
+        {
+            "targets": [6],
             "data": "player",
             "createdCell": function (td, cellData, rowData, row, col) {
                 if (cellData !== '') {
@@ -137,46 +148,54 @@ history_table_options = {
                     $(td).html('<div><a href="#" data-target="#info-modal" data-toggle="modal"><div style="float: left;">' + transcode_dec + '&nbsp;' + cellData + '</div></a></div>');
                 }
             },
-            "width": "12%",
+            "width": "10%",
             "className": "no-wrap modal-control"
         },
         {
-            "targets": [6],
-            "data":"full_title",
+            "targets": [7],
+            "data": "full_title",
             "createdCell": function (td, cellData, rowData, row, col) {
                 if (cellData !== '') {
+                    var icon = '';
+                    var icon_title = '';
                     var parent_info = '';
                     var media_type = '';
                     var thumb_popover = '';
-                    var source = (rowData['state'] === null) ? 'source=history&' : '';
+                    var fallback = (rowData['live']) ? 'poster-live' : 'poster';
+                    var history = (rowData['state'] === null);
                     if (rowData['media_type'] === 'movie') {
+                        icon = (rowData['live']) ? 'fa-broadcast-tower' : 'fa-film';
+                        icon_title = (rowData['live']) ? 'Live TV' : 'Movie';
                         if (rowData['year']) { parent_info = ' (' + rowData['year'] + ')'; }
-                        media_type = '<span class="media-type-tooltip" data-toggle="tooltip" title="Movie"><i class="fa fa-film fa-fw"></i></span>';
-                        thumb_popover = '<span class="thumb-tooltip" data-toggle="popover" data-img="pms_image_proxy?img=' + rowData['thumb'] + '&width=300&height=450&fallback=poster" data-height="120" data-width="80">' + cellData + parent_info + '</span>'
-                        $(td).html('<div class="history-title"><a href="info?' + source + 'rating_key=' + rowData['rating_key'] + '"><div style="float: left;">' + media_type + '&nbsp;' + thumb_popover + '</div></a></div>');
+                        media_type = '<span class="media-type-tooltip" data-toggle="tooltip" title="' + icon_title + '"><i class="fa ' + icon + ' fa-fw"></i></span>';
+                        thumb_popover = '<span class="thumb-tooltip" data-toggle="popover" data-img="' + page('pms_image_proxy', rowData['thumb'], rowData['rating_key'], 300, 450, null, null, null, fallback) + '" data-height="120" data-width="80">' + cellData + parent_info + '</span>';
+                        $(td).html('<div class="history-title"><a href="' + page('info', rowData['rating_key'], rowData['guid'], history, rowData['live']) + '"><div style="float: left;">' + media_type + '&nbsp;' + thumb_popover + '</div></a></div>');
                     } else if (rowData['media_type'] === 'episode') {
-                        if (rowData['parent_media_index'] && rowData['media_index']) { parent_info = ' (S' + rowData['parent_media_index'] + '&middot; E' + rowData['media_index'] + ')'; }
-                        media_type = '<span class="media-type-tooltip" data-toggle="tooltip" title="Episode"><i class="fa fa-television fa-fw"></i></span>';
-                        thumb_popover = '<span class="thumb-tooltip" data-toggle="popover" data-img="pms_image_proxy?img=' + rowData['thumb'] + '&width=300&height=450&fallback=poster" data-height="120" data-width="80">' + cellData + parent_info + '</span>'
-                        $(td).html('<div class="history-title"><a href="info?' + source + 'rating_key=' + rowData['rating_key'] + '"><div style="float: left;" >' + media_type + '&nbsp;' + thumb_popover + '</div></a></div>');
+                        icon = (rowData['live']) ? 'fa-broadcast-tower' : 'fa-television';
+                        icon_title = (rowData['live']) ? 'Live TV' : 'Episode';
+                        if (!isNaN(parseInt(rowData['parent_media_index'])) && !isNaN(parseInt(rowData['media_index']))) { parent_info = ' (S' + rowData['parent_media_index'] + ' &middot; E' + rowData['media_index'] + ')'; }
+                        else if (rowData['live'] && rowData['originally_available_at']) { parent_info = ' (' + rowData['originally_available_at'] + ')'; }
+                        media_type = '<span class="media-type-tooltip" data-toggle="tooltip" title="' + icon_title + '"><i class="fa ' + icon + ' fa-fw"></i></span>';
+                        thumb_popover = '<span class="thumb-tooltip" data-toggle="popover" data-img="' + page('pms_image_proxy', rowData['thumb'], rowData['rating_key'], 300, 450, null, null, null, fallback) + '" data-height="120" data-width="80">' + cellData + parent_info + '</span>';
+                        $(td).html('<div class="history-title"><a href="' + page('info', rowData['rating_key'], rowData['guid'], history, rowData['live']) + '"><div style="float: left;" >' + media_type + '&nbsp;' + thumb_popover + '</div></a></div>');
                     } else if (rowData['media_type'] === 'track') {
                         if (rowData['parent_title']) { parent_info = ' (' + rowData['parent_title'] + ')'; }
                         media_type = '<span class="media-type-tooltip" data-toggle="tooltip" title="Track"><i class="fa fa-music fa-fw"></i></span>';
-                        thumb_popover = '<span class="thumb-tooltip" data-toggle="popover" data-img="pms_image_proxy?img=' + rowData['thumb'] + '&width=300&height=300&fallback=cover" data-height="80" data-width="80">' + cellData + parent_info + '</span>'
-                        $(td).html('<div class="history-title"><a href="info?' + source + 'rating_key=' + rowData['rating_key'] + '"><div style="float: left;">' + media_type + '&nbsp;' + thumb_popover + '</div></a></div>');
+                        thumb_popover = '<span class="thumb-tooltip" data-toggle="popover" data-img="' + page('pms_image_proxy', rowData['thumb'], rowData['rating_key'], 300, 300, null, null, null, 'cover') + '" data-height="80" data-width="80">' + cellData + parent_info + '</span>';
+                        $(td).html('<div class="history-title"><a href="' + page('info', rowData['rating_key'], rowData['guid'], history, rowData['live']) + '"><div style="float: left;">' + media_type + '&nbsp;' + thumb_popover + '</div></a></div>');
                     } else if (rowData['media_type'] === 'clip') {
                         $(td).html(cellData);
                     } else {
-                        $(td).html('<a href="info?rating_key=' + rowData['rating_key'] + '">' + cellData + '</a>');
+                        $(td).html('<a href="' + page('info', rowData['rating_key']) + '">' + cellData + '</a>');
                     }
                 }
             },
-            "width": "33%",
+            "width": "25%",
             "className": "datatable-wrap"
         },
         {
-            "targets": [7],
-            "data":"started",
+            "targets": [8],
+            "data": "started",
             "createdCell": function (td, cellData, rowData, row, col) {
                 if (cellData === null) {
                     $(td).html('n/a');
@@ -189,8 +208,8 @@ history_table_options = {
             "className": "no-wrap"
         },
         {
-            "targets": [8],
-            "data":"paused_counter",
+            "targets": [9],
+            "data": "paused_counter",
             "render": function (data, type, full) {
                 if (data !== null) {
                     return Math.round(moment.duration(data, 'seconds').as('minutes')) + ' mins';
@@ -203,8 +222,8 @@ history_table_options = {
             "className": "no-wrap"
         },
         {
-            "targets": [9],
-            "data":"stopped",
+            "targets": [10],
+            "data": "stopped",
             "createdCell": function (td, cellData, rowData, row, col) {
                 if (cellData === null || (rowData['state'] != null && rowData['state'] != "stopped")) {
                     $(td).html('n/a');
@@ -217,8 +236,8 @@ history_table_options = {
             "className": "no-wrap"
         },
         {
-            "targets": [10],
-            "data":"duration",
+            "targets": [11],
+            "data": "duration",
             "render": function (data, type, full) {
                 if (data !== null) {
                     return Math.round(moment.duration(data, 'seconds').as('minutes')) + ' mins';
@@ -231,7 +250,7 @@ history_table_options = {
             "className": "no-wrap"
         },
         {
-            "targets": [11],
+            "targets": [12],
             "data": "watched_status",
             "createdCell": function (td, cellData, rowData, row, col) {
                 if (cellData == 1) {
@@ -298,19 +317,19 @@ history_table_options = {
     "rowCallback": function (row, rowData, rowIndex) {
         if (rowData['group_count'] == 1) {
             // if no grouped rows simply toggle the delete button
-            if ($.inArray(rowData['id'], history_to_delete) !== -1) {
-                $(row).find('button[data-id="' + rowData['id'] + '"]').toggleClass('btn-warning').toggleClass('btn-danger');
+            if ($.inArray(rowData['row_id'], history_to_delete) !== -1) {
+                $(row).find('button[data-id="' + rowData['row_id'] + '"]').toggleClass('btn-warning').toggleClass('btn-danger');
             }
-        } else if (rowData['id'] !== null) {
+        } else if (rowData['row_id'] !== null) {
             // if grouped rows
             // toggle the parent button to danger
-            $(row).find('button[data-id="' + rowData['id'] + '"]').toggleClass('btn-warning').toggleClass('btn-danger');
+            $(row).find('button[data-id="' + rowData['row_id'] + '"]').toggleClass('btn-warning').toggleClass('btn-danger');
             // check if any child rows are not selected
             var group_ids = rowData['group_ids'].split(',').map(Number);
             group_ids.forEach(function (id) {
                 var index = $.inArray(id, history_to_delete);
                 if (index == -1) {
-                    $(row).find('button[data-id="' + rowData['id'] + '"]').addClass('btn-warning').removeClass('btn-danger');
+                    $(row).find('button[data-id="' + rowData['row_id'] + '"]').addClass('btn-warning').removeClass('btn-danger');
                 }
             });
         }
@@ -334,7 +353,7 @@ $('.history_table').on('click', '> tbody > tr > td.modal-control', function () {
     var rowData = row.data();
 
     $.get('get_stream_data', {
-        row_id: rowData['id'],
+        row_id: rowData['row_id'],
         session_key: rowData['session_key'],
         user: rowData['friendly_name']
     }).then(function (jqXHR) {
@@ -363,9 +382,9 @@ $('.history_table').on('click', '> tbody > tr > td.delete-control > button', fun
 
     if (rowData['group_count'] == 1) {
         // if no grouped rows simply add or remove row from history_to_delete
-        var index = $.inArray(rowData['id'], history_to_delete);
+        var index = $.inArray(rowData['row_id'], history_to_delete);
         if (index === -1) {
-            history_to_delete.push(rowData['id']);
+            history_to_delete.push(rowData['row_id']);
         } else {
             history_to_delete.splice(index, 1);
         }
@@ -489,7 +508,8 @@ function childTableFormat(rowData) {
                 '<th align="left" id="friendly_name">User</th>' +
                 '<th align="left" id="ip_address">IP Address</th>' +
                 '<th align="left" id="platform">Platform</th>' +
-                '<th align="left" id="platform">Player</th>' +
+                '<th align="left" id="product">Product</th>' +
+                '<th align="left" id="player">Player</th>' +
                 '<th align="left" id="title">Title</th>' +
                 '<th align="left" id="started">Started</th>' +
                 '<th align="left" id="paused_counter">Paused</th>' +
@@ -529,7 +549,7 @@ function createChildTable(row, rowData) {
         var childRowData = childRow.data();
 
         $.get('get_stream_data', {
-            row_id: childRowData['id'],
+            row_id: childRowData['row_id'],
             user: childRowData['friendly_name']
         }).then(function (jqXHR) {
             $("#info-modal").html(jqXHR);
@@ -556,9 +576,9 @@ function createChildTable(row, rowData) {
         var childRowData = childRow.data();
 
         // add or remove row from history_to_delete
-        var index = $.inArray(childRowData['id'], history_to_delete);
+        var index = $.inArray(childRowData['row_id'], history_to_delete);
         if (index === -1) {
-            history_to_delete.push(childRowData['id']);
+            history_to_delete.push(childRowData['row_id']);
         } else {
             history_to_delete.splice(index, 1);
         }

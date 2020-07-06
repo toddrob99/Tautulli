@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 #  This file is part of Tautulli.
 #
 #  Tautulli is free software: you can redistribute it and/or modify
@@ -13,6 +15,9 @@
 #  You should have received a copy of the GNU General Public License
 #  along with Tautulli.  If not, see <http://www.gnu.org/licenses/>.
 
+from __future__ import unicode_literals
+from future.builtins import str
+
 from logutils.queue import QueueHandler, QueueListener
 from logging import handlers
 
@@ -27,8 +32,13 @@ import threading
 import traceback
 
 import plexpy
-import helpers
-from plexpy.config import _BLACKLIST_KEYS, _WHITELIST_KEYS
+if plexpy.PYTHON2:
+    import helpers
+    from config import _BLACKLIST_KEYS, _WHITELIST_KEYS
+else:
+    from plexpy import helpers
+    from plexpy.config import _BLACKLIST_KEYS, _WHITELIST_KEYS
+
 
 # These settings are for file logging only
 FILENAME = "tautulli.log"
@@ -54,8 +64,8 @@ def blacklist_config(config):
     blacklist = set()
     blacklist_keys = ['HOOK', 'APIKEY', 'KEY', 'PASSWORD', 'TOKEN']
 
-    for key, value in config.iteritems():
-        if isinstance(value, basestring) and len(value.strip()) > 5 and \
+    for key, value in config.items():
+        if isinstance(value, str) and len(value.strip()) > 5 and \
             key.upper() not in _WHITELIST_KEYS and (key.upper() in blacklist_keys or
                                                     any(bk in key.upper() for bk in _BLACKLIST_KEYS)):
             blacklist.add(value.strip())
@@ -80,7 +90,7 @@ class BlacklistFilter(logging.Filter):
     Log filter for blacklisted tokens and passwords
     """
     def __init__(self):
-        pass
+        super(BlacklistFilter, self).__init__()
 
     def filter(self, record):
         if not plexpy.CONFIG.LOG_BLACKLIST:
@@ -91,43 +101,91 @@ class BlacklistFilter(logging.Filter):
                 if item in record.msg:
                     record.msg = record.msg.replace(item, 8 * '*' + item[-2:])
                 if any(item in str(arg) for arg in record.args):
-                    record.args = tuple(arg.replace(item, 8 * '*' + item[-2:]) if isinstance(arg, basestring) else arg
+                    record.args = tuple(arg.replace(item, 8 * '*' + item[-2:]) if isinstance(arg, str) else arg
                                         for arg in record.args)
             except:
                 pass
         return True
 
 
-class PublicIPFilter(logging.Filter):
+class RegexFilter(logging.Filter):
     """
-    Log filter for public IP addresses
+    Base class for regex log filter
     """
     def __init__(self):
-        pass
+        super(RegexFilter, self).__init__()
+
+        self.regex = re.compile(r'')
 
     def filter(self, record):
         if not plexpy.CONFIG.LOG_BLACKLIST:
             return True
 
         try:
-            # Currently only checking for ipv4 addresses
-            ipv4 = re.findall(r'[0-9]+(?:\.[0-9]+){3}(?!\d*-[a-z0-9]{6})', record.msg)
-            for ip in ipv4:
-                if helpers.is_public_ip(ip):
-                    record.msg = record.msg.replace(ip, ip.partition('.')[0] + '.***.***.***')
+            matches = self.regex.findall(record.msg)
+            for match in matches:
+                record.msg = self.replace(record.msg, match)
 
             args = []
             for arg in record.args:
-                ipv4 = re.findall(r'[0-9]+(?:\.[0-9]+){3}(?!\d*-[a-z0-9]{6})', arg) if isinstance(arg, basestring) else []
-                for ip in ipv4:
-                    if helpers.is_public_ip(ip):
-                        arg = arg.replace(ip, ip.partition('.')[0] + '.***.***.***')
+                matches = self.regex.findall(arg) if isinstance(arg, str) else []
+                for match in matches:
+                    arg = self.replace(arg, match)
                 args.append(arg)
             record.args = tuple(args)
         except:
             pass
 
         return True
+
+    def replace(self, text, match):
+        return text
+
+
+class PublicIPFilter(RegexFilter):
+    """
+    Log filter for public IP addresses
+    """
+    def __init__(self):
+        super(PublicIPFilter, self).__init__()
+
+        # Currently only checking for ipv4 addresses
+        self.regex = re.compile(r'[0-9]+(?:[.-][0-9]+){3}(?!\d*-[a-z0-9]{6})')
+
+    def replace(self, text, ip):
+        if helpers.is_public_ip(ip.replace('-', '.')):
+            partition = '-' if '-' in ip else '.'
+            return text.replace(ip, ip.partition(partition)[0] + (partition + '***') * 3)
+        return text
+
+
+class EmailFilter(RegexFilter):
+    """
+    Log filter for email addresses
+    """
+    def __init__(self):
+        super(EmailFilter, self).__init__()
+
+        self.regex = re.compile(r'([a-z0-9!#$%&\'*+/=?^_`{|}~-]+(?:\.[a-z0-9!#$%&\'*+/=?^_`{|}~-]+)*@'
+                                r'(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)',
+                                re.IGNORECASE)
+
+    def replace(self, text, email):
+        email_parts = email.partition('@')
+        return text.replace(email, email_parts[0][:2] + 8 * '*' + email_parts[1] + 8 * '*')
+
+
+class PlexTokenFilter(RegexFilter):
+    """
+    Log filter for X-Plex-Token
+    """
+    def __init__(self):
+        super(PlexTokenFilter, self).__init__()
+
+        self.regex = re.compile(r'X-Plex-Token(?:=|%3D)([a-zA-Z0-9]+)')
+
+    def replace(self, text, token):
+        return text.replace(token, 8 * '*' + token[-2:])
 
 
 @contextlib.contextmanager
@@ -230,7 +288,7 @@ def initLogger(console=False, log_dir=False, verbose=False):
 
         # Main Tautulli logger
         filename = os.path.join(log_dir, FILENAME)
-        file_handler = handlers.RotatingFileHandler(filename, maxBytes=MAX_SIZE, backupCount=MAX_FILES)
+        file_handler = handlers.RotatingFileHandler(filename, maxBytes=MAX_SIZE, backupCount=MAX_FILES, encoding='utf-8')
         file_handler.setLevel(logging.DEBUG)
         file_handler.setFormatter(file_formatter)
 
@@ -238,7 +296,7 @@ def initLogger(console=False, log_dir=False, verbose=False):
 
         # Tautulli API logger
         filename = os.path.join(log_dir, FILENAME_API)
-        file_handler = handlers.RotatingFileHandler(filename, maxBytes=MAX_SIZE, backupCount=MAX_FILES)
+        file_handler = handlers.RotatingFileHandler(filename, maxBytes=MAX_SIZE, backupCount=MAX_FILES, encoding='utf-8')
         file_handler.setLevel(logging.DEBUG)
         file_handler.setFormatter(file_formatter)
 
@@ -246,7 +304,7 @@ def initLogger(console=False, log_dir=False, verbose=False):
 
         # Tautulli websocket logger
         filename = os.path.join(log_dir, FILENAME_PLEX_WEBSOCKET)
-        file_handler = handlers.RotatingFileHandler(filename, maxBytes=MAX_SIZE, backupCount=MAX_FILES)
+        file_handler = handlers.RotatingFileHandler(filename, maxBytes=MAX_SIZE, backupCount=MAX_FILES, encoding='utf-8')
         file_handler.setLevel(logging.DEBUG)
         file_handler.setFormatter(file_formatter)
 
@@ -268,6 +326,8 @@ def initLogger(console=False, log_dir=False, verbose=False):
         for handler in logger.handlers + logger_api.handlers + logger_plex_websocket.handlers:
             handler.addFilter(BlacklistFilter())
             handler.addFilter(PublicIPFilter())
+            handler.addFilter(EmailFilter())
+            handler.addFilter(PlexTokenFilter())
 
     # Install exception hooks
     initHooks()
@@ -329,7 +389,7 @@ def shutdown():
 # Expose logger methods
 # Main Tautulli logger
 info = logger.info
-warn = logger.warn
+warn = logger.warning
 error = logger.error
 debug = logger.debug
 warning = logger.warning
@@ -337,7 +397,7 @@ exception = logger.exception
 
 # Tautulli API logger
 api_info = logger_api.info
-api_warn = logger_api.warn
+api_warn = logger_api.warning
 api_error = logger_api.error
 api_debug = logger_api.debug
 api_warning = logger_api.warning
@@ -345,7 +405,7 @@ api_exception = logger_api.exception
 
 # Tautulli websocket logger
 websocket_info = logger_plex_websocket.info
-websocket_warn = logger_plex_websocket.warn
+websocket_warn = logger_plex_websocket.warning
 websocket_error = logger_plex_websocket.error
 websocket_debug = logger_plex_websocket.debug
 websocket_warning = logger_plex_websocket.warning

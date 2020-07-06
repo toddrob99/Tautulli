@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 #  This file is part of Tautulli.
 #
 #  Tautulli is free software: you can redistribute it and/or modify
@@ -18,12 +20,18 @@
 #########################################
 
 
-import urllib
+from __future__ import unicode_literals
 
-from common import USER_AGENT
+from future.moves.urllib.request import FancyURLopener
+
+import plexpy
+if plexpy.PYTHON2:
+    from common import USER_AGENT
+else:
+    from plexpy.common import USER_AGENT
 
 
-class PlexPyURLopener(urllib.FancyURLopener):
+class PlexPyURLopener(FancyURLopener):
     version = USER_AGENT
 
 
@@ -44,7 +52,7 @@ class AuthURLOpener(PlexPyURLopener):
         self.numTries = 0
 
         # call the base class
-        urllib.FancyURLopener.__init__(self)
+        FancyURLopener.__init__(self)
 
     def prompt_user_passwd(self, host, realm):
         """

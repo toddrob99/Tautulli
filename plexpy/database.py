@@ -13,6 +13,10 @@
 #  You should have received a copy of the GNU General Public License
 #  along with Tautulli.  If not, see <http://www.gnu.org/licenses/>.
 
+from __future__ import unicode_literals
+from future.builtins import str
+from future.builtins import object
+
 import arrow
 import os
 import sqlite3
@@ -21,37 +25,246 @@ import threading
 import time
 
 import plexpy
-import logger
+if plexpy.PYTHON2:
+    import logger
+    from helpers import cast_to_int, bool_true
+else:
+    from plexpy import logger
+    from plexpy.helpers import cast_to_int, bool_true
+
 
 FILENAME = "tautulli.db"
 db_lock = threading.Lock()
 
+IS_IMPORTING = False
 
-def drop_session_db():
+
+def set_is_importing(value):
+    global IS_IMPORTING
+    IS_IMPORTING = bool_true(value)
+
+
+def validate_database(database=None):
+    try:
+        connection = sqlite3.connect(database, timeout=20)
+    except (sqlite3.OperationalError, sqlite3.DatabaseError, ValueError) as e:
+        logger.error("Tautulli Database :: Invalid database specified: %s", e)
+        return 'Invalid database specified'
+    except Exception as e:
+        logger.error("Tautulli Database :: Uncaught exception: %s", e)
+        return 'Uncaught exception'
+
+    try:
+        connection.execute('SELECT started from session_history')
+        connection.close()
+    except (sqlite3.OperationalError, sqlite3.DatabaseError, ValueError) as e:
+        logger.error("Tautulli Database :: Invalid database specified: %s", e)
+        return 'Invalid database specified'
+    except Exception as e:
+        logger.error("Tautulli Database :: Uncaught exception: %s", e)
+        return 'Uncaught exception'
+
+    return 'success'
+
+
+def import_tautulli_db(database=None, method=None, backup=False):
+    db_validate = validate_database(database=database)
+    if not db_validate == 'success':
+        logger.error("Tautulli Database :: Failed to import Tautulli database: %s", db_validate)
+        return False
+
+    if method not in ('merge', 'overwrite'):
+        logger.error("Tautulli Database :: Failed to import Tautulli database: invalid import method '%s'", method)
+        return False
+
+    if backup:
+        # Make a backup of the current database first
+        logger.info("Tautulli Database :: Creating a database backup before importing.")
+        if not make_backup():
+            logger.error("Tautulli Database :: Failed to import Tautulli database: failed to create database backup")
+            return False
+
+    logger.info("Tautulli Database :: Importing Tautulli database '%s' with import method '%s'...", database, method)
+    set_is_importing(True)
+
+    db = MonitorDatabase()
+    db.connection.execute('BEGIN IMMEDIATE')
+    db.connection.execute('ATTACH ? AS import_db', [database])
+
+    # Get the current number of used ids in the session_history table
+    session_history_seq = db.select_single('SELECT seq FROM sqlite_sequence WHERE name = "session_history"')
+    session_history_rows = session_history_seq.get('seq', 0)
+
+    session_history_tables = ('session_history', 'session_history_metadata', 'session_history_media_info')
+
+    if method == 'merge':
+        logger.info("Tautulli Database :: Creating temporary database tables to re-index grouped session history.")
+        for table_name in session_history_tables:
+            db.action('CREATE TABLE {table}_copy AS SELECT * FROM import_db.{table}'.format(table=table_name))
+            db.action('UPDATE {table}_copy SET id = id + ?'.format(table=table_name),
+                      [session_history_rows])
+            if table_name == 'session_history':
+                db.action('UPDATE {table}_copy SET reference_id = reference_id + ?'.format(table=table_name),
+                          [session_history_rows])
+
+    # Keep track of all table columns so that duplicates can be removed after importing
+    table_columns = {}
+
+    tables = db.select('SELECT name FROM import_db.sqlite_master '
+                       'WHERE type = "table" AND name NOT LIKE "sqlite_%"'
+                       'ORDER BY name')
+    for table in tables:
+        table_name = table['name']
+        if table_name == 'sessions':
+            # Skip temporary sessions table
+            continue
+
+        current_table = db.select('PRAGMA main.table_info({table})'.format(table=table_name))
+        if not current_table:
+            # Skip table does not exits
+            continue
+
+        logger.info("Tautulli Database :: Importing database table '%s'.", table_name)
+
+        if method == 'overwrite':
+            # Clear the table and reset the autoincrement ids
+            db.action('DELETE FROM {table}'.format(table=table_name))
+            db.action('DELETE FROM sqlite_sequence WHERE name = ?', [table_name])
+
+        if method == 'merge' and table_name in session_history_tables:
+            from_db_name = 'main'
+            from_table_name = table_name + '_copy'
+        else:
+            from_db_name = 'import_db'
+            from_table_name = table_name
+
+        # Get the list of columns to import
+        current_columns = [c['name'] for c in current_table]
+        import_table = db.select('PRAGMA {from_db}.table_info({from_table})'.format(from_db=from_db_name,
+                                                                                    from_table=from_table_name))
+
+        if method == 'merge' and table_name not in session_history_tables:
+            import_columns = [c['name'] for c in import_table if c['name'] in current_columns and not c['pk']]
+        else:
+            import_columns = [c['name'] for c in import_table if c['name'] in current_columns]
+
+        table_columns[table_name] = import_columns
+        insert_columns = ', '.join(import_columns)
+
+        # Insert the data with ignore instead of replace to be safe
+        db.action('INSERT OR IGNORE INTO {table} ({columns}) '
+                  'SELECT {columns} FROM {from_db}.{from_table}'.format(table=table_name,
+                                                                        columns=insert_columns,
+                                                                        from_db=from_db_name,
+                                                                        from_table=from_table_name))
+
+    db.connection.execute('DETACH import_db')
+
+    if method == 'merge':
+        for table_name, columns in sorted(table_columns.items()):
+            duplicate_columns = ', '.join([c for c in columns if c not in ('id', 'reference_id')])
+            logger.info("Tautulli Database :: Removing duplicate rows from database table '%s'.", table_name)
+            if table_name in session_history_tables[1:]:
+                db.action('DELETE FROM {table} WHERE id NOT IN '
+                          '(SELECT id FROM session_history)'.format(table=table_name))
+            else:
+                db.action('DELETE FROM {table} WHERE id NOT IN '
+                          '(SELECT MIN(id) FROM {table} GROUP BY {columns})'.format(table=table_name,
+                                                                                    columns=duplicate_columns))
+
+        logger.info("Tautulli Database :: Deleting temporary database tables.")
+        for table_name in session_history_tables:
+            db.action('DROP TABLE {table}_copy'.format(table=table_name))
+
+    db.action('VACUUM')
+
+    logger.info("Tautulli Database :: Tautulli database import complete.")
+    set_is_importing(False)
+
+
+def integrity_check():
     monitor_db = MonitorDatabase()
-    monitor_db.action('DROP TABLE sessions')
+    result = monitor_db.select_single('PRAGMA integrity_check')
+    return result
 
 
-def clear_history_tables():
-    logger.debug(u"Tautulli Database :: Deleting all session_history records... No turning back now bub.")
-    monitor_db = MonitorDatabase()
-    monitor_db.action('DELETE FROM session_history')
-    monitor_db.action('DELETE FROM session_history_media_info')
-    monitor_db.action('DELETE FROM session_history_metadata')
-    monitor_db.action('VACUUM')
+def clear_table(table=None):
+    if table:
+        monitor_db = MonitorDatabase()
+
+        logger.debug("Tautulli Database :: Clearing database table '%s'." % table)
+        try:
+            monitor_db.action('DELETE FROM %s' % table)
+            monitor_db.action('VACUUM')
+            return True
+        except Exception as e:
+            logger.error("Tautulli Database :: Failed to clear database table '%s': %s." % (table, e))
+            return False
 
 
 def delete_sessions():
-    logger.debug(u"Tautulli Database :: Clearing temporary sessions from database.")
-    monitor_db = MonitorDatabase()
+    logger.info("Tautulli Database :: Clearing temporary sessions from database.")
+    return clear_table('sessions')
 
-    try:
-        monitor_db.action('DELETE FROM sessions')
-        monitor_db.action('VACUUM')
-        return True
-    except Exception as e:
-        logger.warn(u"Tautulli Database :: Unable to clear temporary sessions from database: %s." % e)
-        return False
+
+def delete_recently_added():
+    logger.info("Tautulli Database :: Clearing recently added items from database.")
+    return clear_table('recently_added')
+
+
+def delete_rows_from_table(table, row_ids):
+    if row_ids and isinstance(row_ids, str):
+        row_ids = list(map(cast_to_int, row_ids.split(',')))
+
+    if row_ids:
+        logger.info("Tautulli Database :: Deleting row ids %s from %s database table", row_ids, table)
+        query = "DELETE FROM " + table + " WHERE id IN (%s) " % ','.join(['?'] * len(row_ids))
+        monitor_db = MonitorDatabase()
+
+        try:
+            monitor_db.action(query, row_ids)
+            return True
+        except Exception as e:
+            logger.error("Tautulli Database :: Failed to delete rows from %s database table: %s" % (table, e))
+            return False
+
+    return True
+
+
+def delete_session_history_rows(row_ids=None):
+    success = []
+    for table in ('session_history', 'session_history_media_info', 'session_history_metadata'):
+        success.append(delete_rows_from_table(table=table, row_ids=row_ids))
+    return all(success)
+
+
+def delete_user_history(user_id=None):
+    if str(user_id).isdigit():
+        monitor_db = MonitorDatabase()
+
+        # Get all history associated with the user_id
+        result = monitor_db.select('SELECT id FROM session_history WHERE user_id = ?',
+                                   [user_id])
+        row_ids = [row['id'] for row in result]
+
+        logger.info("Tautulli Database :: Deleting all history for user_id %s from database." % user_id)
+        return delete_session_history_rows(row_ids=row_ids)
+
+
+def delete_library_history(section_id=None):
+    if str(section_id).isdigit():
+        monitor_db = MonitorDatabase()
+
+        # Get all history associated with the section_id
+        result = monitor_db.select('SELECT session_history.id FROM session_history '
+                                   'JOIN session_history_metadata ON session_history.id = session_history_metadata.id '
+                                   'WHERE session_history_metadata.section_id = ?',
+                                   [section_id])
+        row_ids = [row['id'] for row in result]
+
+        logger.info("Tautulli Database :: Deleting all history for library section_id %s from database." % section_id)
+        return delete_session_history_rows(row_ids=row_ids)
+
 
 def db_filename(filename=FILENAME):
     """ Returns the filepath to the db """
@@ -62,10 +275,18 @@ def db_filename(filename=FILENAME):
 def make_backup(cleanup=False, scheduler=False):
     """ Makes a backup of db, removes all but the last 5 backups """
 
+    # Check the integrity of the database first
+    integrity = (integrity_check()['integrity_check'] == 'ok')
+
+    corrupt = ''
+    if not integrity:
+        corrupt = '.corrupt'
+        plexpy.NOTIFY_QUEUE.put({'notify_action': 'on_plexpydbcorrupt'})
+
     if scheduler:
-        backup_file = 'tautulli.backup-%s.sched.db' % arrow.now().format('YYYYMMDDHHmmss')
+        backup_file = 'tautulli.backup-{}{}.sched.db'.format(arrow.now().format('YYYYMMDDHHmmss'), corrupt)
     else:
-        backup_file = 'tautulli.backup-%s.db' % arrow.now().format('YYYYMMDDHHmmss')
+        backup_file = 'tautulli.backup-{}{}.db'.format(arrow.now().format('YYYYMMDDHHmmss'), corrupt)
     backup_folder = plexpy.CONFIG.BACKUP_DIR
     backup_file_fp = os.path.join(backup_folder, backup_file)
 
@@ -74,11 +295,12 @@ def make_backup(cleanup=False, scheduler=False):
         os.makedirs(backup_folder)
 
     db = MonitorDatabase()
-    db.connection.execute('begin immediate')
+    db.connection.execute('BEGIN IMMEDIATE')
     shutil.copyfile(db_filename(), backup_file_fp)
     db.connection.rollback()
 
-    if cleanup:
+    # Only cleanup if the database integrity is okay
+    if cleanup and integrity:
         now = time.time()
         # Delete all scheduled backup older than BACKUP_DAYS.
         for root, dirs, files in os.walk(backup_folder):
@@ -88,13 +310,13 @@ def make_backup(cleanup=False, scheduler=False):
                     try:
                         os.remove(file_)
                     except OSError as e:
-                        logger.error(u"Tautulli Database :: Failed to delete %s from the backup folder: %s" % (file_, e))
+                        logger.error("Tautulli Database :: Failed to delete %s from the backup folder: %s" % (file_, e))
 
     if backup_file in os.listdir(backup_folder):
-        logger.debug(u"Tautulli Database :: Successfully backed up %s to %s" % (db_filename(), backup_file))
+        logger.debug("Tautulli Database :: Successfully backed up %s to %s" % (db_filename(), backup_file))
         return True
     else:
-        logger.error(u"Tautulli Database :: Failed to backup %s to %s" % (db_filename(), backup_file))
+        logger.error("Tautulli Database :: Failed to backup %s to %s" % (db_filename(), backup_file))
         return False
 
 
@@ -119,12 +341,12 @@ class MonitorDatabase(object):
     def __init__(self, filename=FILENAME):
         self.filename = filename
         self.connection = sqlite3.connect(db_filename(filename), timeout=20)
-        # Don't wait for the disk to finish writing
-        self.connection.execute("PRAGMA synchronous = OFF")
-        # Journal disabled since we never do rollbacks
+        # Set database synchronous mode (default NORMAL)
+        self.connection.execute("PRAGMA synchronous = %s" % plexpy.CONFIG.SYNCHRONOUS_MODE)
+        # Set database journal mode (default WAL)
         self.connection.execute("PRAGMA journal_mode = %s" % plexpy.CONFIG.JOURNAL_MODE)
-        # 64mb of cache memory, probably need to make it user configurable
-        self.connection.execute("PRAGMA cache_size=-%s" % (get_cache_size() * 1024))
+        # Set database cache size (default 32MB)
+        self.connection.execute("PRAGMA cache_size = -%s" % (get_cache_size() * 1024))
         self.connection.row_factory = dict_factory
 
     def action(self, query, args=None, return_last_id=False):
@@ -146,16 +368,17 @@ class MonitorDatabase(object):
                     break
 
                 except sqlite3.OperationalError as e:
+                    e = str(e)
                     if "unable to open database file" in e or "database is locked" in e:
-                        logger.warn(u"Tautulli Database :: Database Error: %s", e)
+                        logger.warn("Tautulli Database :: Database Error: %s", e)
                         attempts += 1
                         time.sleep(1)
                     else:
-                        logger.error(u"Tautulli Database :: Database error: %s", e)
+                        logger.error("Tautulli Database :: Database error: %s", e)
                         raise
 
                 except sqlite3.DatabaseError as e:
-                    logger.error(u"Tautulli Database :: Fatal Error executing %s :: %s", query, e)
+                    logger.error("Tautulli Database :: Fatal Error executing %s :: %s", query, e)
                     raise
 
             return sql_result
@@ -174,7 +397,7 @@ class MonitorDatabase(object):
         sql_results = self.action(query, args).fetchone()
 
         if sql_results is None or sql_results == "":
-            return ""
+            return {}
 
         return sql_results
 
@@ -183,23 +406,23 @@ class MonitorDatabase(object):
         trans_type = 'update'
         changes_before = self.connection.total_changes
 
-        gen_params = lambda my_dict: [x + " = ?" for x in my_dict.keys()]
+        gen_params = lambda my_dict: [x + " = ?" for x in my_dict]
 
         update_query = "UPDATE " + table_name + " SET " + ", ".join(gen_params(value_dict)) + \
                        " WHERE " + " AND ".join(gen_params(key_dict))
 
-        self.action(update_query, value_dict.values() + key_dict.values())
+        self.action(update_query, list(value_dict.values()) + list(key_dict.values()))
 
         if self.connection.total_changes == changes_before:
             trans_type = 'insert'
             insert_query = (
-                "INSERT INTO " + table_name + " (" + ", ".join(value_dict.keys() + key_dict.keys()) + ")" +
-                " VALUES (" + ", ".join(["?"] * len(value_dict.keys() + key_dict.keys())) + ")"
+                "INSERT INTO " + table_name + " (" + ", ".join(list(value_dict.keys()) + list(key_dict.keys())) + ")" +
+                " VALUES (" + ", ".join(["?"] * len(list(value_dict.keys()) + list(key_dict.keys()))) + ")"
             )
             try:
-                self.action(insert_query, value_dict.values() + key_dict.values())
+                self.action(insert_query, list(value_dict.values()) + list(key_dict.values()))
             except sqlite3.IntegrityError:
-                logger.info(u"Tautulli Database :: Queries failed: %s and %s", update_query, insert_query)
+                logger.info("Tautulli Database :: Queries failed: %s and %s", update_query, insert_query)
 
         # We want to know if it was an update or insert
         return trans_type

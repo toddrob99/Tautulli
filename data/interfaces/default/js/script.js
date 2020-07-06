@@ -1,3 +1,45 @@
+var p = {
+    name: 'Unknown',
+    version: 'Unknown',
+    os: 'Unknown'
+};
+if (typeof platform !== 'undefined') {
+    p.name = platform.name;
+    p.version = platform.version;
+    p.os = platform.os.toString();
+}
+
+if (['IE', 'Microsoft Edge', 'IE Mobile'].indexOf(p.name) > -1) {
+    if (!getCookie('browserDismiss')) {
+        var $browser_warning = $('<div id="browser-warning">' +
+            '<i class="fa fa-exclamation-circle"></i>&nbsp;' +
+            'Tautulli does not support Internet Explorer or Microsoft Edge! ' +
+            'Please use a different browser such as Chrome or Firefox.' +
+            '<button type="button" class="close"><i class="fa fa-remove"></i></button>' +
+            '</div>');
+        $('body').prepend($browser_warning);
+        var offset = $browser_warning.height();
+        warningOffset(offset);
+
+        $browser_warning.one('click', 'button.close', function () {
+            $browser_warning.remove();
+            warningOffset(-offset);
+            setCookie('browserDismiss', 'true', 7);
+        });
+
+        function warningOffset(offset) {
+            var navbar = $('.navbar-fixed-top');
+            if (navbar.length) {
+                navbar.offset({top: navbar.offset().top + offset});
+            }
+            var container = $('.body-container');
+            if (container.length) {
+                container.offset({top: container.offset().top + offset});
+            }
+        }
+    }
+}
+
 function initConfigCheckbox(elem, toggleElem, reverse) {
     toggleElem = (toggleElem === undefined) ? null : toggleElem;
     reverse = (reverse === undefined) ? false : reverse;
@@ -195,6 +237,27 @@ function doAjaxCall(url, elem, reload, form, showMsg, callback) {
     });
 }
 
+getBrowsePath = function (key, path, filter_ext) {
+    var deferred = $.Deferred();
+
+    $.ajax({
+        url: 'browse_path',
+        type: 'GET',
+        data: {
+            key: key,
+            path: path,
+            filter_ext: filter_ext
+        },
+        success: function(data) {
+            deferred.resolve(data);
+        },
+        error: function() {
+            deferred.reject();
+        }
+    });
+    return deferred;
+};
+
 function doSimpleAjaxCall(url) {
     $.ajax(url);
 }
@@ -216,33 +279,31 @@ $.cachedScript = function (url) {
 function isPrivateIP(ip_address) {
     var defer = $.Deferred();
 
-    $.cachedScript('js/ipaddr.min.js').done(function () {
-        if (ipaddr.isValid(ip_address)) {
-            var addr = ipaddr.process(ip_address);
+    if (ipaddr.isValid(ip_address)) {
+        var addr = ipaddr.process(ip_address);
 
-            var rangeList = [];
-            if (addr.kind() === 'ipv4') {
-                rangeList = [
-                    ipaddr.parseCIDR('127.0.0.0/8'),
-                    ipaddr.parseCIDR('10.0.0.0/8'),
-                    ipaddr.parseCIDR('172.16.0.0/12'),
-                    ipaddr.parseCIDR('192.168.0.0/16')
-                ];
-            } else {
-                rangeList = [
-                    ipaddr.parseCIDR('fd00::/8')
-                ];
-            }
-
-            if (ipaddr.subnetMatch(addr, rangeList, -1) >= 0) {
-                defer.resolve();
-            } else {
-                defer.reject();
-            }
+        var rangeList = [];
+        if (addr.kind() === 'ipv4') {
+            rangeList = [
+                ipaddr.parseCIDR('127.0.0.0/8'),
+                ipaddr.parseCIDR('10.0.0.0/8'),
+                ipaddr.parseCIDR('172.16.0.0/12'),
+                ipaddr.parseCIDR('192.168.0.0/16')
+            ];
         } else {
-            defer.resolve('n/a');
+            rangeList = [
+                ipaddr.parseCIDR('fd00::/8')
+            ];
         }
-    });
+
+        if (ipaddr.subnetMatch(addr, rangeList, -1) >= 0) {
+            defer.resolve();
+        } else {
+            defer.reject();
+        }
+    } else {
+        defer.resolve('n/a');
+    }
 
     return defer.promise();
 }
@@ -421,8 +482,9 @@ $('*').on('click', '.refresh_pms_image', function (e) {
 });
 
 // Taken from http://stackoverflow.com/questions/10420352/converting-file-size-in-bytes-to-human-readable#answer-14919494
-function humanFileSize(bytes, si) {
-    var thresh = si ? 1000 : 1024;
+function humanFileSize(bytes, si = true) {
+    //var thresh = si ? 1000 : 1024;
+    var thresh = 1024;  // Always divide by 2^10 but display SI units
     if (Math.abs(bytes) < thresh) {
         return bytes + ' B';
     }
@@ -491,26 +553,48 @@ function PopupCenter(url, title, w, h) {
     return newWindow;
 }
 
-if (!localStorage.getItem('Tautulli_ClientId')) {
-    localStorage.setItem('Tautulli_ClientId', uuidv4());
+
+function setLocalStorage(key, value, path) {
+    if (path !== false) {
+        key = key + '_' + window.location.pathname;
+    }
+    localStorage.setItem(key, value);
+}
+function getLocalStorage(key, default_value, path) {
+    if (path !== false) {
+        key = key + '_' + window.location.pathname;
+    }
+    var value = localStorage.getItem(key);
+    if (value !== null) {
+        return value
+    } else if (default_value !== undefined) {
+        setLocalStorage(key, default_value, path);
+        return default_value
+    }
 }
 
 function uuidv4() {
-    return ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g, c =>
-        (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16)
-    )
+    return ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g, function(c) {
+        var cryptoObj = window.crypto || window.msCrypto; // for IE 11
+        return (c ^ cryptoObj.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16)
+    });
 }
 
-var x_plex_headers = {
-    'Accept': 'application/json',
-    'X-Plex-Product': 'Tautulli',
-    'X-Plex-Version': 'Plex OAuth',
-    'X-Plex-Client-Identifier': localStorage.getItem('Tautulli_ClientId'),
-    'X-Plex-Platform': platform.name,
-    'X-Plex-Platform-Version': platform.version,
-    'X-Plex-Device': platform.os.toString(),
-    'X-Plex-Device-Name': platform.name
-};
+function getPlexHeaders() {
+    return {
+        'Accept': 'application/json',
+        'X-Plex-Product': 'Tautulli',
+        'X-Plex-Version': 'Plex OAuth',
+        'X-Plex-Client-Identifier': getLocalStorage('Tautulli_ClientID', uuidv4(), false),
+        'X-Plex-Platform': p.name,
+        'X-Plex-Platform-Version': p.version,
+        'X-Plex-Model': 'Plex OAuth',
+        'X-Plex-Device': p.os,
+        'X-Plex-Device-Name': p.name,
+        'X-Plex-Device-Screen-Resolution': window.screen.width + 'x' + window.screen.height,
+        'X-Plex-Language': 'en'
+    };
+}
 
 var plex_oauth_window = null;
 const plex_oauth_loader = '<style>' +
@@ -561,6 +645,7 @@ function closePlexOAuthWindow() {
 }
 
 getPlexOAuthPin = function () {
+    var x_plex_headers = getPlexHeaders();
     var deferred = $.Deferred();
 
     $.ajax({
@@ -568,7 +653,6 @@ getPlexOAuthPin = function () {
         type: 'POST',
         headers: x_plex_headers,
         success: function(data) {
-            plex_oauth_window.location = 'https://app.plex.tv/auth/#!?clientID=' + x_plex_headers['X-Plex-Client-Identifier'] + '&code=' + data.code;
             deferred.resolve({pin: data.id, code: data.code});
         },
         error: function() {
@@ -585,48 +669,60 @@ function PlexOAuth(success, error, pre) {
     if (typeof pre === "function") {
         pre()
     }
-    clearTimeout(polling);
     closePlexOAuthWindow();
     plex_oauth_window = PopupCenter('', 'Plex-OAuth', 600, 700);
     $(plex_oauth_window.document.body).html(plex_oauth_loader);
 
     getPlexOAuthPin().then(function (data) {
+        var x_plex_headers = getPlexHeaders();
         const pin = data.pin;
         const code = data.code;
-        var keep_polling = true;
+
+        var oauth_params = {
+            'clientID': x_plex_headers['X-Plex-Client-Identifier'],
+            'context[device][product]': x_plex_headers['X-Plex-Product'],
+            'context[device][version]': x_plex_headers['X-Plex-Version'],
+            'context[device][platform]': x_plex_headers['X-Plex-Platform'],
+            'context[device][platformVersion]': x_plex_headers['X-Plex-Platform-Version'],
+            'context[device][device]': x_plex_headers['X-Plex-Device'],
+            'context[device][deviceName]': x_plex_headers['X-Plex-Device-Name'],
+            'context[device][model]': x_plex_headers['X-Plex-Model'],
+            'context[device][screenResolution]': x_plex_headers['X-Plex-Device-Screen-Resolution'],
+            'context[device][layout]': 'desktop',
+            'code': code
+        }
+
+        plex_oauth_window.location = 'https://app.plex.tv/auth/#!?' + encodeData(oauth_params);
+        polling = pin;
 
         (function poll() {
-            polling = setTimeout(function () {
-                $.ajax({
-                    url: 'https://plex.tv/api/v2/pins/' + pin,
-                    type: 'GET',
-                    headers: x_plex_headers,
-                    success: function (data) {
-                        if (data.authToken){
-                            keep_polling = false;
-                            closePlexOAuthWindow();
-                            if (typeof success === "function") {
-                                success(data.authToken)
-                            }
+            $.ajax({
+                url: 'https://plex.tv/api/v2/pins/' + pin,
+                type: 'GET',
+                headers: x_plex_headers,
+                success: function (data) {
+                    if (data.authToken){
+                        closePlexOAuthWindow();
+                        if (typeof success === "function") {
+                            success(data.authToken)
                         }
-                    },
-                    error: function () {
-                        keep_polling = false;
+                    }
+                },
+                error: function (jqXHR, textStatus, errorThrown) {
+                    if (textStatus !== "timeout") {
                         closePlexOAuthWindow();
                         if (typeof error === "function") {
                             error()
                         }
-                    },
-                    complete: function () {
-                        if (keep_polling){
-                            poll();
-                        } else {
-                            clearTimeout(polling);
-                        }
-                    },
-                    timeout: 1000
-                });
-            }, 1000);
+                    }
+                },
+                complete: function () {
+                    if (!plex_oauth_window.closed && polling === pin){
+                        setTimeout(function() {poll()}, 1000);
+                    }
+                },
+                timeout: 10000
+            });
         })();
     }, function () {
         closePlexOAuthWindow();
@@ -634,4 +730,76 @@ function PlexOAuth(success, error, pre) {
             error()
         }
     });
+}
+
+function encodeData(data) {
+    return Object.keys(data).map(function(key) {
+        return [key, data[key]].map(encodeURIComponent).join("=");
+    }).join("&");
+}
+
+function page(endpoint, ...args) {
+    let endpoints = {
+        'pms_image_proxy': pms_image_proxy,
+        'info': info_page,
+        'library': library_page,
+        'user': user_page
+    };
+
+    var params = {};
+
+    if (endpoint in endpoints) {
+        params = endpoints[endpoint](...args);
+    }
+
+    return endpoint + '?' + $.param(params).replace(/'/g, '%27');
+}
+
+function pms_image_proxy(img, rating_key, width, height, opacity, background, blur, fallback, refresh, clip, img_format) {
+    var params = {};
+
+    if (img != null) { params.img = img; }
+    if (rating_key != null) { params.rating_key = rating_key; }
+    if (width != null) { params.width = width; }
+    if (height != null) { params.height = height; }
+    if (opacity != null) { params.opacity = opacity; }
+    if (background != null) { params.background = background; }
+    if (blur != null) { params.blur = blur; }
+    if (fallback != null) { params.fallback = fallback; }
+    if (refresh != null) { params.refresh = true; }
+    if (clip != null) { params.clip = true; }
+    if (img_format != null) { params.img_format = img_format; }
+
+    return params;
+}
+
+function info_page(rating_key, guid, history, live) {
+    var params = {};
+
+    if (live && history) {
+        params.guid = guid;
+    } else {
+        params.rating_key = rating_key;
+    }
+
+    if (history) { params.source = 'history'; }
+
+    return params;
+}
+
+function library_page(section_id) {
+    var params = {};
+
+    if (section_id != null) { params.section_id = section_id; }
+
+    return params;
+}
+
+function user_page(user_id, user) {
+    var params = {};
+
+    if (user_id != null) { params.user_id = user_id; }
+    if (user != null) { params.user = user; }
+
+    return params;
 }
